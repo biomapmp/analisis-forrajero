@@ -765,28 +765,15 @@ class SistemaMapas:
 
     @staticmethod
     def crear_mapa_con_base(gdf, zoom_extra=0):
-        """Crea un mapa Folium con base satelital + OSM, zoom automático y controles."""
+        """Crea un mapa Folium con zoom automático."""
         bounds = gdf.total_bounds
         centro = [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]
-        m = folium.Map(
-            location=centro, zoom_start=12,
-            tiles=SistemaMapas.OSM_TILE,
-            attr=SistemaMapas.OSM_ATTR,
-            control_scale=True,
-        )
-        folium.TileLayer(
-            SistemaMapas.SATELLITE_TILE,
-            name='Satelital',
-            attr=SistemaMapas.SATELLITE_ATTR,
-        ).add_to(m)
-        folium.LayerControl(collapsed=False).add_to(m)
+        m = folium.Map(location=centro, zoom_start=12, tiles='OpenStreetMap', control_scale=True)
         margin = 0.005 * (1 + zoom_extra)
         m.fit_bounds(
             [[bounds[1] - margin, bounds[0] - margin],
              [bounds[3] + margin, bounds[2] + margin]]
         )
-        Fullscreen().add_to(m)
-        MousePosition().add_to(m)
         return m
 
     def _generar_malla_puntos(self, gdf, densidad=1200):
@@ -2585,21 +2572,228 @@ def mostrar_carbono():
         st.info("Ejecute el análisis primero.")
         return
     res = st.session_state.resultados
+    co2_ton = res.get('co2_total_ton', 0)
+    c_ton = res.get('carbono_total_ton', 0)
+
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Carbono Total", f"{res.get('carbono_total_ton', 0):,.0f} ton C")
+        st.metric("Carbono Total", f"{c_ton:,.0f} ton C")
     with col2:
-        st.metric("Potencial Créditos", f"{res.get('co2_total_ton', 0)/1000:,.1f} k")
+        st.metric("CO₂ Secuestrado", f"{co2_ton:,.0f} ton CO₂e")
     with col3:
-        valor_economico = res.get('co2_total_ton', 0) * 15
+        precio_ton = 15
+        valor_economico = co2_ton * precio_ton
         st.metric("Valor Aprox.", f"${valor_economico:,.0f} USD")
+
     if res.get('desglose_promedio'):
-        st.subheader("Distribución por Pools")
+        st.subheader("📊 Distribución por Pools de Carbono")
         df_pools = pd.DataFrame({
             'Pool': list(res['desglose_promedio'].keys()),
             'Ton C/ha': list(res['desglose_promedio'].values())
         })
-        st.dataframe(df_pools, use_container_width=True)
+        fig_pools = go.Figure(data=[go.Bar(
+            x=df_pools['Pool'], y=df_pools['Ton C/ha'],
+            marker=dict(color=['#065f46', '#059669', '#10b981', '#34d399', '#6ee7b7']),
+            text=df_pools['Ton C/ha'].apply(lambda x: f'{x:.1f}'),
+            textposition='outside',
+        )])
+        fig_pools.update_layout(
+            title='', xaxis_title='Pool', yaxis_title='Ton C/ha',
+            height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#cbd5e1', size=11),
+            xaxis=dict(gridcolor='rgba(255,255,255,0.05)'),
+            yaxis=dict(gridcolor='rgba(255,255,255,0.05)'),
+        )
+        st.plotly_chart(fig_pools, use_container_width=True)
+
+    # =================================================================
+    # CALCULADORA DE HUELLA DE CARBONO GANADERA
+    # =================================================================
+    st.divider()
+    st.markdown("""
+    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;">
+        <span style="font-size:1.5rem;">🐄</span>
+        <span style="font-size:1.15rem;font-weight:600;color:#f1f5f9;">Calculadora de Huella de Carbono Ganadera</span>
+    </div>
+    <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem;">
+        Estimá las emisiones de tu rodeo y comparalas con el carbono secuestrado en tu campo
+        para conocer tu <strong>balance de carbono</strong> y el potencial de créditos comercializables.
+    </p>
+    """, unsafe_allow_html=True)
+
+    with st.expander("📝 Datos del rodeo", expanded=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            tipo_ganado = st.selectbox("Tipo de ganado", ["bovino carne", "bovino leche", "ovina", "mixto"], index=0)
+            cabezas = st.number_input("Cantidad de cabezas", min_value=1, max_value=100000, value=100, step=10)
+            peso_prom = st.number_input("Peso vivo promedio (kg)", min_value=50, max_value=1200, value=400, step=10)
+        with col2:
+            sistema_alimentacion = st.selectbox("Sistema de alimentación", [
+                "pastoreo permanente", "pastoreo + suplemento", "feedlot / confinamiento", "mixto"
+            ], index=0)
+            categoria = st.selectbox("Categoría predominante", [
+                "vacas adultas", "novillos", "terneros/as", "cria (vaca + ternero)", "ciclo completo"
+            ], index=0)
+            manejo_estiércol = st.selectbox("Manejo de estiércol", [
+                "pastoreo (deposición en campo)", "recolección + compostaje",
+                "recolección + laguna", "digestor anaeróbico"
+            ], index=0)
+
+        co2_secuestrado = co2_ton  # ton CO2e del análisis satelital
+
+        usar_ia = st.checkbox("Usar IA (Groq) para recomendaciones detalladas", value=False,
+                              help="Si no hay API key configurada, se usará una estimación automática.")
+
+        if st.button("🔥 Calcular huella y balance", use_container_width=True, type="primary"):
+            with st.spinner("Calculando emisiones y balance de carbono..."):
+                # Factores de emisión IPCC (Tier 1)
+                # CH4 entérico: kg CH4/cabeza/año
+                if tipo_ganado == "bovino carne":
+                    if categoria == "vacas adultas":
+                        factor_enterico = 62  # kg CH4/año
+                    elif categoria == "novillos":
+                        factor_enterico = 47
+                    elif categoria == "terneros/as":
+                        factor_enterico = 25
+                    else:  # cria o ciclo completo
+                        factor_enterico = 55
+                elif tipo_ganado == "bovino leche":
+                    factor_enterico = 85
+                elif tipo_ganado == "ovina":
+                    factor_enterico = 8
+                else:
+                    factor_enterico = 50
+
+                # Ajuste por peso
+                factor_enterico = factor_enterico * (peso_prom / 400)
+
+                # CH4 manure: kg CH4/cabeza/año
+                if manejo_estiércol == "pastoreo (deposición en campo)":
+                    factor_manure_ch4 = 1.5
+                    factor_manure_n2o = 0.02
+                elif manejo_estiércol == "recolección + compostaje":
+                    factor_manure_ch4 = 3.0
+                    factor_manure_n2o = 0.005
+                elif manejo_estiércol == "recolección + laguna":
+                    factor_manure_ch4 = 18.0
+                    factor_manure_n2o = 0.01
+                else:  # digestor
+                    factor_manure_ch4 = 2.0
+                    factor_manure_n2o = 0.005
+
+                # Ajuste por alimentación
+                if sistema_alimentacion == "pastoreo permanente":
+                    factor_enterico *= 1.0
+                    factor_manure_ch4 *= 0.8
+                elif sistema_alimentacion == "pastoreo + suplemento":
+                    factor_enterico *= 0.95
+                    factor_manure_ch4 *= 0.9
+                elif sistema_alimentacion == "feedlot / confinamiento":
+                    factor_enterico *= 0.85
+                    factor_manure_ch4 *= 1.8
+                else:  # mixto
+                    factor_enterico *= 0.92
+                    factor_manure_ch4 *= 1.0
+
+                # Cálculos
+                ch4_enterico_kg = factor_enterico * cabezas
+                ch4_manure_kg = factor_manure_ch4 * cabezas
+                ch4_total_kg = ch4_enterico_kg + ch4_manure_kg
+                ch4_total_co2e = ch4_total_kg * 28  # GWP CH4 = 28
+
+                n2o_kg = factor_manure_n2o * cabezas * (peso_prom / 400)
+                n2o_total_co2e = n2o_kg * 265  # GWP N2O = 265
+
+                emisiones_totales_co2e = ch4_total_co2e + n2o_total_co2e
+                balance_co2e = co2_secuestrado - emisiones_totales_co2e
+
+            # === RESULTADOS ===
+            st.subheader("📊 Resultados del Balance de Carbono")
+
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("CH₄ entérico", f"{ch4_enterico_kg:,.0f} kg CH₄/año")
+            with col2:
+                st.metric("CH₄ estiércol", f"{ch4_manure_kg:,.0f} kg CH₄/año")
+            with col3:
+                st.metric("N₂O estiércol", f"{n2o_kg:.1f} kg N₂O/año")
+            with col4:
+                st.metric("Emisiones totales", f"{emisiones_totales_co2e:,.0f} ton CO₂e/año",
+                          delta=f"{emisiones_totales_co2e / max(co2_secuestrado, 1) * 100:.0f}% del secuestro")
+
+            # Delta
+            if balance_co2e > 0:
+                delta_color = "green"
+                delta_texto = "positivo — tu campo captura más carbono del que emite 🎉"
+            else:
+                delta_color = "red"
+                delta_texto = "negativo — las emisiones superan la captura. Revisá las recomendaciones abajo."
+
+            st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);
+                        border-radius:14px;padding:1.5rem;margin:1rem 0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
+                    <div>
+                        <div style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;">CO₂ Secuestrado (satélite)</div>
+                        <div style="font-size:2rem;font-weight:700;color:#10b981;">{co2_secuestrado:,.0f} <span style="font-size:0.9rem;color:#6ee7b7;">ton CO₂e/año</span></div>
+                    </div>
+                    <div style="color:#475569;font-size:1.5rem;">−</div>
+                    <div>
+                        <div style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;">Emisiones ganaderas</div>
+                        <div style="font-size:2rem;font-weight:700;color:#ef4444;">{emisiones_totales_co2e:,.0f} <span style="font-size:0.9rem;color:#fca5a5;">ton CO₂e/año</span></div>
+                    </div>
+                    <div style="color:#475569;font-size:1.5rem;">=</div>
+                    <div>
+                        <div style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;">Balance neto</div>
+                        <div style="font-size:2rem;font-weight:700;color:{'#10b981' if balance_co2e > 0 else '#ef4444'};">{balance_co2e:+,.0f} <span style="font-size:0.9rem;color:{'#6ee7b7' if balance_co2e > 0 else '#fca5a5'};">ton CO₂e/año</span></div>
+                    </div>
+                </div>
+                <div style="margin-top:1rem;padding:0.5rem 0.75rem;background:rgba(255,255,255,0.04);border-radius:8px;font-size:0.85rem;color:#cbd5e1;">
+                    📌 Balance {delta_texto}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Potencial económico
+            st.subheader("💰 Potencial de Créditos de Carbono")
+            if balance_co2e > 0:
+                creditos_vendibles = balance_co2e * 0.7  # 70% comercializable (margen de seguridad)
+                ingreso_anual = creditos_vendibles * precio_ton
+                ingreso_10a = ingreso_anual * 10
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Créditos comercializables", f"{creditos_vendibles:,.0f} ton CO₂e/año",
+                              help="Estimación conservadora: 70% del balance neto")
+                with col2:
+                    st.metric("Ingreso anual estimado", f"${ingreso_anual:,.0f} USD/año",
+                              help=f"Precio de referencia: ${precio_ton}/ton CO₂e (mercado voluntario)")
+                with col3:
+                    st.metric("Proyección 10 años", f"${ingreso_10a:,.0f} USD",
+                              help="Estimación lineal sin ajuste por inflación ni crecimiento")
+            else:
+                st.warning("""
+                **Balance negativo.** No hay excedente de carbono para comercializar.
+                Revisá las recomendaciones abajo para reducir emisiones y aumentar la captura de carbono.
+                """)
+
+            # Gráfico de balance
+            fig_balance = go.Figure()
+            fig_balance.add_trace(go.Bar(
+                x=['CO₂ Secuestrado', 'Emisiones Ganaderas', 'Balance Neto'],
+                y=[co2_secuestrado, emisiones_totales_co2e, balance_co2e],
+                marker=dict(color=['#10b981', '#ef4444', '#3b82f6']),
+                text=[f'{co2_secuestrado:,.0f}', f'{emisiones_totales_co2e:,.0f}', f'{balance_co2e:+,.0f}'],
+                textposition='outside',
+            ))
+            fig_balance.update_layout(
+                title='Balance de Carbono (ton CO₂e/año)',
+                height=400, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#cbd5e1', size=11),
+                xaxis=dict(gridcolor='rgba(255,255,255,0.05)'),
+                yaxis=dict(gridcolor='rgba(255,255,255,0.05)', title='ton CO₂e/año'),
+            )
+            st.plotly_chart(fig_balance, use_container_width=True)
 
 def mostrar_biodiversidad():
     st.header("🦋 Análisis de Biodiversidad")
