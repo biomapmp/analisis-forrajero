@@ -450,10 +450,16 @@ class ModeloPRV:
             return {}
 
         area_total = gdf_potreros["area_ha"].sum()
-        prod_total = (gdf_potreros["productividad_kg_ms_ha"] * gdf_potreros["area_ha"]).sum()
+        col_prod = "productividad_kg_ms_ha"
+        if col_prod not in gdf_potreros.columns:
+            col_prod = "productividad_prom_kg_ms_ha" if "productividad_prom_kg_ms_ha" in gdf_potreros.columns else None
+        if col_prod is None:
+            return {}
+
+        prod_total = (gdf_potreros[col_prod] * gdf_potreros["area_ha"]).sum()
         prod_prom = prod_total / area_total if area_total > 0 else 0
 
-        forraje_total_est = estados_df["forraje_acumulado_kg_ms"].sum()
+        forraje_total_est = estados_df["forraje_acumulado_kg_ms"].sum() if "forraje_acumulado_kg_ms" in estados_df.columns else 0
         ev_soportables = forraje_total_est / (self.consumo_ev_diario_kg * 30) if forraje_total_est > 0 else 0
 
         return {
