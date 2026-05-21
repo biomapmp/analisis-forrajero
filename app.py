@@ -770,15 +770,10 @@ class SistemaMapas:
         centro = [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]
         m = folium.Map(
             location=centro, zoom_start=12,
-            tiles=SistemaMapas.SATELLITE_TILE,
-            attr=SistemaMapas.SATELLITE_ATTR,
+            tiles=SistemaMapas.OSM_TILE,
+            attr=SistemaMapas.OSM_ATTR,
             control_scale=True,
         )
-        folium.TileLayer(
-            SistemaMapas.OSM_TILE,
-            name='Mapa callejero',
-            attr=SistemaMapas.OSM_ATTR,
-        ).add_to(m)
         folium.TileLayer(
             SistemaMapas.SATELLITE_TILE,
             name='Satelital',
