@@ -2137,7 +2137,7 @@ def ejecutar_analisis_completo(gdf, tipo_ecosistema, num_puntos, usar_gee=False)
 # ===============================
 def mostrar_mapas_calor():
     st.header("🗺️ Mapas de Calor Continuos")
-    if st.session_state.poligono_data is None:
+    if st.session_state.poligono_data is None or st.session_state.resultados is None:
         st.info("Ejecute el análisis primero.")
         return
 
