@@ -15,6 +15,170 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# ===== CSS MODERNO =====
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    * { font-family: 'Inter', -apple-system, sans-serif; }
+
+    /* Fondo general */
+    .stApp {
+        background: linear-gradient(135deg, #0a0f1e 0%, #0d1520 50%, #0f1928 100%);
+    }
+    .stApp > header { background: rgba(10,15,30,0.8) !important; backdrop-filter: blur(10px); }
+
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0d1520 0%, #111827 100%);
+        border-right: 1px solid rgba(255,255,255,0.05);
+    }
+    section[data-testid="stSidebar"] .stMarkdown h1,
+    section[data-testid="stSidebar"] .stMarkdown h2,
+    section[data-testid="stSidebar"] .stMarkdown h3 {
+        color: #f1f5f9 !important;
+        font-weight: 600;
+    }
+
+    /* Tarjetas / cards */
+    div.stCard, div[data-testid="stMetric"], div.stBlock {
+        background: rgba(255,255,255,0.04) !important;
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 16px;
+        padding: 1.25rem;
+        transition: all 0.2s ease;
+    }
+    div.stCard:hover, div[data-testid="stMetric"]:hover {
+        border-color: rgba(59,130,246,0.3);
+        transform: translateY(-1px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+
+    /* Métricas nativas */
+    div[data-testid="stMetric"] {
+        background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)) !important;
+    }
+    div[data-testid="stMetric"] > div {
+        background: transparent !important;
+        border: none !important;
+    }
+    div[data-testid="stMetric"] label {
+        color: #94a3b8 !important;
+        font-size: 0.8rem !important;
+        font-weight: 500 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+        color: #f1f5f9 !important;
+        font-size: 2rem !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.02em;
+    }
+    div[data-testid="stMetric"] div[data-testid="stMetricDelta"] {
+        color: #10b981 !important;
+        font-size: 0.75rem !important;
+    }
+
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0;
+        background: rgba(255,255,255,0.03);
+        border-radius: 12px;
+        padding: 4px;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px;
+        padding: 8px 18px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #64748b;
+        transition: all 0.15s ease;
+    }
+    .stTabs [data-baseweb="tab"]:hover { color: #e2e8f0; background: rgba(255,255,255,0.05); }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        color: #f1f5f9 !important;
+        background: linear-gradient(135deg, #1e3a5f 0%, #1a3a4a 100%);
+        box-shadow: 0 2px 8px rgba(59,130,246,0.2);
+    }
+
+    /* Headers */
+    h1, h2, h3 { color: #f1f5f9 !important; font-weight: 700; letter-spacing: -0.02em; }
+    h1 { font-size: 2rem !important; background: linear-gradient(135deg, #60a5fa, #a78bfa);
+         -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    h2 { font-size: 1.35rem !important; color: #e2e8f0 !important; }
+    h3 { font-size: 1.1rem !important; color: #cbd5e1 !important; }
+
+    /* Botón primario */
+    .stButton button[kind="primary"] {
+        background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+        border: none !important;
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+        font-size: 0.9rem !important;
+        padding: 0.6rem 1.2rem !important;
+        transition: all 0.2s ease !important;
+        box-shadow: 0 4px 15px rgba(37,99,235,0.3) !important;
+    }
+    .stButton button[kind="primary"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 25px rgba(37,99,235,0.5) !important;
+    }
+
+    /* Selectores / inputs */
+    div[data-baseweb="select"], div[data-baseweb="input"] {
+        background: rgba(255,255,255,0.05) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        border-radius: 10px !important;
+    }
+    div[data-baseweb="select"]:hover, div[data-baseweb="input"]:hover {
+        border-color: rgba(59,130,246,0.4) !important;
+    }
+
+    /* DataFrames */
+    .stDataFrame { border-radius: 12px; overflow: hidden; }
+    .stDataFrame table {
+        background: rgba(255,255,255,0.02) !important;
+        color: #e2e8f0 !important;
+    }
+    .stDataFrame th {
+        background: rgba(59,130,246,0.15) !important;
+        color: #93c5fd !important;
+        font-weight: 600 !important;
+        font-size: 0.75rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .stDataFrame td { color: #cbd5e1 !important; border-color: rgba(255,255,255,0.05) !important; }
+
+    /* Expander */
+    .streamlit-expanderHeader {
+        background: rgba(255,255,255,0.03) !important;
+        border-radius: 10px !important;
+        color: #e2e8f0 !important;
+        font-weight: 500;
+    }
+
+    /* Info / Success / Warning boxes */
+    div[data-testid="stAlert"] { border-radius: 12px !important; border: none !important; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+
+    /* Footer branding */
+    .footer-brand {
+        text-align: center; padding: 2rem 0 1rem; font-size: 0.75rem;
+        color: #475569; border-top: 1px solid rgba(255,255,255,0.04);
+        margin-top: 3rem; letter-spacing: 0.02em;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # ===== IMPORTS ESTÁNDAR =====
 import pandas as pd
 import numpy as np
@@ -939,6 +1103,35 @@ class SistemaMapas:
 # 📊 VISUALIZACIONES
 # ===============================
 class Visualizaciones:
+    _TEMPLATE = {
+        'paper_bgcolor': 'rgba(0,0,0,0)',
+        'plot_bgcolor': 'rgba(0,0,0,0)',
+        'font': {'color': '#cbd5e1', 'family': 'Inter, sans-serif', 'size': 12},
+        'title': {'x': 0.5, 'font': {'size': 15, 'color': '#e2e8f0', 'weight': 600}},
+        'hovermode': 'x unified',
+        'margin': {'t': 40, 'b': 40, 'l': 50, 'r': 20},
+        'xaxis': {'gridcolor': 'rgba(255,255,255,0.05)', 'zerolinecolor': 'rgba(255,255,255,0.08)'},
+        'yaxis': {'gridcolor': 'rgba(255,255,255,0.05)', 'zerolinecolor': 'rgba(255,255,255,0.08)'},
+    }
+
+    @staticmethod
+    def _aplicar_estilo(fig, titulo='', height=380):
+        fig.update_layout(
+            title=dict(text=titulo, x=0.5, font=dict(size=15, color='#e2e8f0', weight=600)),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#cbd5e1', family='Inter, sans-serif', size=11),
+            hovermode='x unified',
+            margin=dict(t=45, b=40, l=50, r=20),
+            height=height,
+            legend=dict(font=dict(color='#94a3b8', size=10), orientation='h', y=1.12),
+        )
+        fig.update_xaxes(gridcolor='rgba(255,255,255,0.05)', zerolinecolor='rgba(255,255,255,0.08)',
+                         tickfont=dict(color='#94a3b8', size=10))
+        fig.update_yaxes(gridcolor='rgba(255,255,255,0.05)', zerolinecolor='rgba(255,255,255,0.08)',
+                         tickfont=dict(color='#94a3b8', size=10))
+        return fig
+
     @staticmethod
     def crear_grafico_barras_carbono(desglose: Dict):
         if not desglose:
@@ -946,9 +1139,20 @@ class Visualizaciones:
             fig.update_layout(title='No hay datos de carbono disponibles', height=400)
             return fig
         descripciones = {'AGB': 'Biomasa Aérea Viva', 'BGB': 'Biomasa de Raíces', 'DW': 'Madera Muerta', 'LI': 'Hojarasca', 'SOC': 'Carbono Orgánico del Suelo'}
-        etiquetas = [f"{descripciones.get(k, k)}<br>({k})" for k in desglose.keys()]
-        fig = go.Figure(data=[go.Bar(x=etiquetas, y=list(desglose.values()), marker_color=['#238b45', '#41ab5d', '#74c476', '#a1d99b', '#d9f0a3'], text=[f"{v:.1f} ton C/ha" for v in desglose.values()], textposition='auto', hovertemplate='<b>%{x}</b><br>Valor: %{y:.1f} ton C/ha<extra></extra>')])
-        fig.update_layout(title='Distribución de Carbono por Pools', xaxis_title='Pool de Carbono', yaxis_title='Ton C/ha', height=400, hovermode='x unified')
+        colores = ['#065f46', '#059669', '#10b981', '#34d399', '#6ee7b7']
+        etiquetas = [f"{descripciones.get(k, k)}<br><span style='font-size:0.75rem;color:#94a3b8'>({k})</span>" for k in desglose.keys()]
+        fig = go.Figure(data=[go.Bar(
+            x=list(desglose.keys()),
+            y=list(desglose.values()),
+            marker_color=colores[:len(desglose)],
+            marker_line=dict(width=0),
+            text=[f"{v:.1f}" for v in desglose.values()],
+            textposition='outside',
+            textfont=dict(color='#e2e8f0', size=12, weight=600),
+            hovertemplate='<b>%{x}</b><br>%{y:.1f} ton C/ha<extra></extra>',
+        )])
+        fig = Visualizaciones._aplicar_estilo(fig, 'Distribución de Carbono por Pools')
+        fig.update_yaxes(title='ton C/ha')
         return fig
 
     @staticmethod
@@ -965,8 +1169,30 @@ class Visualizaciones:
             equitatividad = random.uniform(70, 90)
             conservacion = random.uniform(60, 95)
             valores = [shannon_norm, riqueza_norm, abundancia_norm, equitatividad, conservacion]
-            fig = go.Figure(data=go.Scatterpolar(r=valores, theta=categorias, fill='toself', fillcolor='rgba(139, 92, 246, 0.3)', line_color='#8b5cf6', name='Biodiversidad'))
-            fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True, height=400, title='Perfil de Biodiversidad')
+            fig = go.Figure(data=go.Scatterpolar(
+                r=valores, theta=categorias,
+                fill='toself',
+                fillcolor='rgba(139, 92, 246, 0.25)',
+                line=dict(color='#8b5cf6', width=2),
+                marker=dict(size=6, color='#a78bfa'),
+                name='Biodiversidad',
+            ))
+            fig.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#cbd5e1', family='Inter, sans-serif', size=11),
+                polar=dict(
+                    bgcolor='rgba(0,0,0,0)',
+                    radialaxis=dict(visible=True, range=[0, 100],
+                                    gridcolor='rgba(255,255,255,0.08)',
+                                    linecolor='rgba(255,255,255,0.05)',
+                                    tickfont=dict(color='#94a3b8', size=9)),
+                    angularaxis=dict(gridcolor='rgba(255,255,255,0.05)',
+                                     tickfont=dict(color='#94a3b8', size=10)),
+                ),
+                showlegend=False,
+                height=380,
+                margin=dict(t=20, b=20, l=40, r=40),
+            )
             return fig
         except Exception as e:
             fig = go.Figure()
@@ -979,74 +1205,133 @@ class Visualizaciones:
             return None
         try:
             n = min(50, len(puntos_carbono))
-            fig = make_subplots(rows=2, cols=2, subplot_titles=('Carbono vs NDVI', 'Carbono vs NDWI', 'Shannon vs NDVI', 'Shannon vs NDWI'), vertical_spacing=0.15, horizontal_spacing=0.15)
+            fig = make_subplots(rows=2, cols=2,
+                subplot_titles=('Carbono vs NDVI', 'Carbono vs NDWI', 'Shannon vs NDVI', 'Shannon vs NDWI'),
+                vertical_spacing=0.18, horizontal_spacing=0.18)
             carbono_vals = [p['carbono_ton_ha'] for p in puntos_carbono[:n]]
             ndvi_vals = [p['ndvi'] for p in puntos_ndvi[:n]]
             ndwi_vals = [p['ndwi'] for p in puntos_ndwi[:n]]
             shannon_vals = [p['indice_shannon'] for p in puntos_biodiversidad[:n]]
-            fig.add_trace(go.Scatter(x=ndvi_vals, y=carbono_vals, mode='markers', marker=dict(color='#10b981', size=8), name='Carbono-NDVI'), row=1, col=1)
-            fig.add_trace(go.Scatter(x=ndwi_vals, y=carbono_vals, mode='markers', marker=dict(color='#3b82f6', size=8), name='Carbono-NDWI'), row=1, col=2)
-            fig.add_trace(go.Scatter(x=ndvi_vals, y=shannon_vals, mode='markers', marker=dict(color='#8b5cf6', size=8), name='Shannon-NDVI'), row=2, col=1)
-            fig.add_trace(go.Scatter(x=ndwi_vals, y=shannon_vals, mode='markers', marker=dict(color='#f59e0b', size=8), name='Shannon-NDWI'), row=2, col=2)
-            fig.update_layout(height=700, showlegend=True, title_text="Comparación de Variables Ambientales")
-            fig.update_xaxes(title_text="NDVI", row=1, col=1)
-            fig.update_yaxes(title_text="Carbono (ton C/ha)", row=1, col=1)
-            fig.update_xaxes(title_text="NDWI", row=1, col=2)
-            fig.update_yaxes(title_text="Carbono (ton C/ha)", row=1, col=2)
-            fig.update_xaxes(title_text="NDVI", row=2, col=1)
-            fig.update_yaxes(title_text="Índice de Shannon", row=2, col=1)
-            fig.update_xaxes(title_text="NDWI", row=2, col=2)
-            fig.update_yaxes(title_text="Índice de Shannon", row=2, col=2)
+            fig.add_trace(go.Scatter(x=ndvi_vals, y=carbono_vals, mode='markers',
+                marker=dict(color='#10b981', size=7, line=dict(width=0.5, color='rgba(255,255,255,0.2)')),
+                name='Carbono-NDVI'), row=1, col=1)
+            fig.add_trace(go.Scatter(x=ndwi_vals, y=carbono_vals, mode='markers',
+                marker=dict(color='#3b82f6', size=7, line=dict(width=0.5, color='rgba(255,255,255,0.2)')),
+                name='Carbono-NDWI'), row=1, col=2)
+            fig.add_trace(go.Scatter(x=ndvi_vals, y=shannon_vals, mode='markers',
+                marker=dict(color='#8b5cf6', size=7, line=dict(width=0.5, color='rgba(255,255,255,0.2)')),
+                name='Shannon-NDVI'), row=2, col=1)
+            fig.add_trace(go.Scatter(x=ndwi_vals, y=shannon_vals, mode='markers',
+                marker=dict(color='#f59e0b', size=7, line=dict(width=0.5, color='rgba(255,255,255,0.2)')),
+                name='Shannon-NDWI'), row=2, col=2)
+            fig.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#cbd5e1', family='Inter, sans-serif', size=11),
+                height=680, showlegend=True,
+                title=dict(text='Comparación de Variables Ambientales', x=0.5,
+                          font=dict(size=15, color='#e2e8f0', weight=600)),
+                legend=dict(font=dict(color='#94a3b8', size=9), orientation='h', y=1.02),
+            )
+            for i in range(1, 3):
+                for j in range(1, 3):
+                    fig.update_xaxes(gridcolor='rgba(255,255,255,0.05)', row=i, col=j,
+                                     tickfont=dict(color='#94a3b8', size=9))
+                    fig.update_yaxes(gridcolor='rgba(255,255,255,0.05)', row=i, col=j,
+                                     tickfont=dict(color='#94a3b8', size=9))
             return fig
         except Exception as e:
             return None
 
     @staticmethod
     def crear_grafico_forrajero(disponibilidad_forrajera: Dict, equivalentes_vaca: Dict):
-        fig = make_subplots(rows=2, cols=2, subplot_titles=('Disponibilidad Forrajera', 'Equivalentes Vaca', 'Distribución por Sublote', 'Plan de Rotación'),
-                             specs=[[{'type': 'bar'}, {'type': 'pie'}], [{'type': 'bar'}, {'type': 'table'}]],
-                             vertical_spacing=0.15, horizontal_spacing=0.15, row_heights=[0.5, 0.5])
-        fig.add_trace(go.Bar(x=['Productividad', 'Disponible Total', 'Aprovechable'],
-                              y=[disponibilidad_forrajera.get('productividad_kg_ms_ha', 0),
-                                 disponibilidad_forrajera.get('disponibilidad_total_kg_ms', 0) / 1000,
-                                 disponibilidad_forrajera.get('forraje_aprovechable_kg_ms', 0) / 1000],
-                              name='Forraje', marker_color=['#8B4513', '#D2691E', '#F4A460']), row=1, col=1)
-        fig.add_trace(go.Pie(labels=['EV por día', 'EV para período', 'EV recomendado'],
-                              values=[equivalentes_vaca.get('ev_por_dia', 0),
-                                      equivalentes_vaca.get('ev_para_periodo', 0),
-                                      equivalentes_vaca.get('ev_recomendado', 0)],
-                              name='Equivalentes Vaca', hole=0.4), row=1, col=2)
-        fig.update_layout(height=700, showlegend=True, title_text="Análisis Forrajero Completo")
-        fig.update_yaxes(title_text="kg MS/ha / ton MS", row=1, col=1)
-        fig.update_xaxes(title_text="Métrica", row=1, col=1)
+        fig = make_subplots(rows=2, cols=2,
+            subplot_titles=('Disponibilidad Forrajera', 'Equivalentes Vaca',
+                           'Distribución por Sublote', 'Plan de Rotación'),
+            specs=[[{'type': 'bar'}, {'type': 'pie'}],
+                   [{'type': 'bar'}, {'type': 'table'}]],
+            vertical_spacing=0.18, horizontal_spacing=0.18, row_heights=[0.5, 0.5])
+        fig.add_trace(go.Bar(
+            x=['Productividad', 'Disponible Total', 'Aprovechable'],
+            y=[disponibilidad_forrajera.get('productividad_kg_ms_ha', 0),
+               disponibilidad_forrajera.get('disponibilidad_total_kg_ms', 0) / 1000,
+               disponibilidad_forrajera.get('forraje_aprovechable_kg_ms', 0) / 1000],
+            marker_color=['#92400e', '#d97706', '#f59e0b'],
+            marker_line=dict(width=0),
+            texttemplate='%{y:,.0f}', textposition='outside',
+            textfont=dict(color='#e2e8f0', size=10),
+            hovertemplate='<b>%{x}</b><br>%{y:,.1f}<extra></extra>',
+        ), row=1, col=1)
+        fig.add_trace(go.Pie(
+            labels=['EV por día', 'EV para período', 'EV recomendado'],
+            values=[equivalentes_vaca.get('ev_por_dia', 0),
+                    equivalentes_vaca.get('ev_para_periodo', 0),
+                    equivalentes_vaca.get('ev_recomendado', 0)],
+            marker=dict(colors=['#f97316', '#a855f7', '#06b6d4']),
+            textinfo='label+value', textfont=dict(color='#f1f5f9', size=10),
+            hole=0.45, hovertemplate='%{label}: %{value:.1f}<extra></extra>',
+        ), row=1, col=2)
+        fig.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#cbd5e1', family='Inter, sans-serif', size=11),
+            height=680,
+            title=dict(text='Análisis Forrajero Completo', x=0.5,
+                      font=dict(size=15, color='#e2e8f0', weight=600)),
+            legend=dict(font=dict(color='#94a3b8', size=9), orientation='h', y=1.02),
+            showlegend=True,
+        )
+        fig.update_xaxes(gridcolor='rgba(255,255,255,0.05)', tickfont=dict(color='#94a3b8', size=9))
+        fig.update_yaxes(gridcolor='rgba(255,255,255,0.05)', tickfont=dict(color='#94a3b8', size=9),
+                         title='kg MS/ha / ton MS')
         return fig
 
     @staticmethod
-    def crear_metricas_kpi(carbono_total: float, co2_total: float, shannon: float, area: float):
+    def crear_metricas_kpi(carbono_total: float, co2_total: float, shannon: float, area: float,
+                            ndvi: float = 0, ndwi: float = 0, forraje_kg: float = 0, ev: float = 0):
+        def _card(icon, label, value, unit, gradient, badge=None):
+            badge_html = f'<span style="background:rgba(255,255,255,0.15);padding:2px 8px;border-radius:20px;font-size:0.65rem;margin-left:6px;">{badge}</span>' if badge else ''
+            return f"""
+            <div style="background:{gradient};padding:1.25rem 1.5rem;border-radius:14px;
+                        border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(8px);
+                        box-shadow:0 4px 20px rgba(0,0,0,0.2);transition:all 0.25s ease;">
+                <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
+                    <span style="font-size:1.1rem;">{icon}</span>
+                    <span style="color:rgba(255,255,255,0.7);font-size:0.75rem;font-weight:500;text-transform:uppercase;letter-spacing:0.05em;">
+                        {label}{badge_html}
+                    </span>
+                </div>
+                <div style="font-size:1.9rem;font-weight:700;color:white;letter-spacing:-0.02em;line-height:1.1;">
+                    {value}
+                </div>
+                <div style="color:rgba(255,255,255,0.5);font-size:0.7rem;margin-top:0.15rem;">{unit}</div>
+            </div>"""
+
+        cards = []
+        cards.append(_card("🌳", "Carbono Total", f"{carbono_total:,.0f}", "ton C almacenadas",
+                           "linear-gradient(135deg, #065f46 0%, #059669 100%)"))
+        cards.append(_card("🏭", "CO₂ Equivalente", f"{co2_total:,.0f}", "ton CO₂e — potencial créditos",
+                           "linear-gradient(135deg, #0a7e5a 0%, #10b981 100%)"))
+        cards.append(_card("🦋", "Biodiversidad", f"{shannon:.2f}", "Índice de Shannon",
+                           "linear-gradient(135deg, #6d28d9 0%, #8b5cf6 100%)",
+                           "bajo" if shannon < 1.5 else ("medio" if shannon < 2.5 else "alto")))
+        cards.append(_card("📐", "Área de Estudio", f"{area:,.1f}", "hectáreas",
+                           "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)"))
+
+        # Segunda fila si hay datos forrajeros
+        if forraje_kg > 0:
+            cards.append(_card("🌿", "Productividad Forrajera", f"{forraje_kg:,.0f}", "kg MS/ha",
+                               "linear-gradient(135deg, #92400e 0%, #d97706 100%)"))
+        if ev > 0:
+            cards.append(_card("🐄", "Carga Animal Recomendada", f"{ev:.1f}", "EV para 30 días",
+                               "linear-gradient(135deg, #831843 0%, #db2777 100%)"))
+        cards.append(_card("📈", "NDVI Promedio", f"{ndvi:.3f}", "Salud de la vegetación",
+                           "linear-gradient(135deg, #14532d 0%, #16a34a 100%)"))
+        cards.append(_card("💧", "NDWI Promedio", f"{ndwi:.3f}", "Contenido de agua",
+                           "linear-gradient(135deg, #0c4a6e 0%, #0284c7 100%)"))
+
         html = f"""
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem;">
-            <div style="background: linear-gradient(135deg, #065f46 0%, #0a7e5a 100%); padding: 1.5rem; border-radius: 10px; color: white;">
-                <h3 style="margin: 0; font-size: 1.2rem;">🌳 Carbono Total</h3>
-                <p style="font-size: 2rem; font-weight: bold; margin: 0.5rem 0;">{carbono_total:,.0f}</p>
-                <p style="margin: 0;">ton C</p>
-            </div>
-            <div style="background: linear-gradient(135deg, #0a7e5a 0%, #10b981 100%); padding: 1.5rem; border-radius: 10px; color: white;">
-                <h3 style="margin: 0; font-size: 1.2rem;">🏭 CO₂ Equivalente</h3>
-                <p style="font-size: 2rem; font-weight: bold; margin: 0.5rem 0;">{co2_total:,.0f}</p>
-                <p style="margin: 0;">ton CO₂e</p>
-            </div>
-            <div style="background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%); padding: 1.5rem; border-radius: 10px; color: white;">
-                <h3 style="margin: 0; font-size: 1.2rem;">🦋 Índice Shannon</h3>
-                <p style="font-size: 2rem; font-weight: bold; margin: 0.5rem 0;">{shannon:.2f}</p>
-                <p style="margin: 0;">Biodiversidad</p>
-            </div>
-            <div style="background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%); padding: 1.5rem; border-radius: 10px; color: white;">
-                <h3 style="margin: 0; font-size: 1.2rem;">📐 Área Total</h3>
-                <p style="font-size: 2rem; font-weight: bold; margin: 0.5rem 0;">{area:,.1f}</p>
-                <p style="margin: 0;">hectáreas</p>
-            </div>
-        </div>
-        """
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.5rem;">
+            {''.join(cards)}
+        </div>"""
         return html
 
 # ===============================
@@ -2198,41 +2483,90 @@ def mostrar_dashboard():
         st.info("Ejecute el análisis primero.")
         return
     res = st.session_state.resultados
+
+    # Extraer métricas forrajeras si existen
+    forraje_kg = 0
+    ev_recomendado = 0
+    if 'analisis_forrajero' in res:
+        forraje_kg = res['analisis_forrajero']['disponibilidad_forrajera']['productividad_kg_ms_ha']
+        ev_recomendado = res['analisis_forrajero']['equivalentes_vaca']['ev_recomendado']
+
     html_kpi = Visualizaciones.crear_metricas_kpi(
         res.get('carbono_total_ton', 0),
         res.get('co2_total_ton', 0),
         res.get('shannon_promedio', 0),
-        res.get('area_total_ha', 0)
+        res.get('area_total_ha', 0),
+        ndvi=res.get('ndvi_promedio', 0),
+        ndwi=res.get('ndwi_promedio', 0),
+        forraje_kg=forraje_kg,
+        ev=ev_recomendado,
     )
     st.markdown(html_kpi, unsafe_allow_html=True)
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("📈 NDVI promedio", f"{res.get('ndvi_promedio', 0):.3f}")
-    with col2:
-        st.metric("💧 NDWI promedio", f"{res.get('ndwi_promedio', 0):.3f}")
-    with col3:
-        st.metric("🎯 Puntos analizados", res.get('num_puntos', 0))
 
-    if 'analisis_forrajero' in res:
-        st.subheader("🐮 Métricas Forrajeras")
-        col_f1, col_f2, col_f3 = st.columns(3)
-        with col_f1:
-            st.metric("Productividad", f"{res['analisis_forrajero']['disponibilidad_forrajera']['productividad_kg_ms_ha']:,.0f}", "kg MS/ha")
-        with col_f2:
-            st.metric("EV Recomendados", f"{res['analisis_forrajero']['equivalentes_vaca']['ev_recomendado']:.1f}")
-        with col_f3:
-            st.metric("Sublotes", len(res['analisis_forrajero']['sublotes']))
+    st.markdown(f"""
+    <div style="display:flex;gap:1rem;align-items:center;margin:1rem 0 1.5rem;
+                background:rgba(255,255,255,0.03);border-radius:12px;padding:0.75rem 1.25rem;
+                border:1px solid rgba(255,255,255,0.05);">
+        <span style="font-size:0.85rem;color:#94a3b8;">Ecosistema:</span>
+        <span style="font-weight:600;color:#e2e8f0;">{res.get('tipo_ecosistema', '').title()}</span>
+        <span style="color:#475569;">|</span>
+        <span style="font-size:0.85rem;color:#94a3b8;">Puntos de muestreo:</span>
+        <span style="font-weight:600;color:#e2e8f0;">{res.get('num_puntos', 0)}</span>
+        <span style="color:#475569;">|</span>
+        <span style="font-size:0.85rem;color:#94a3b8;">Sistema forrajero:</span>
+        <span style="font-weight:600;color:#e2e8f0;">{res.get('analisis_forrajero', {}).get('sistema_forrajero', 'N/A').replace('_', ' ').title()}</span>
+    </div>
+    """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
-    with col1:
+    col_left, col_right = st.columns([1.2, 1])
+
+    with col_left:
+        st.markdown('<h3 style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">🌳 Distribución de Carbono</h3>', unsafe_allow_html=True)
         fig_carbono = Visualizaciones.crear_grafico_barras_carbono(res.get('desglose_promedio', {}))
         if fig_carbono:
+            fig_carbono.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#cbd5e1', size=11),
+                title=dict(text='', font=dict(size=0)),
+            )
+            fig_carbono.update_xaxes(gridcolor='rgba(255,255,255,0.05)')
+            fig_carbono.update_yaxes(gridcolor='rgba(255,255,255,0.05)')
             st.plotly_chart(fig_carbono, use_container_width=True)
-    with col2:
+
+    with col_right:
+        st.markdown('<h3 style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">🦋 Perfil de Biodiversidad</h3>', unsafe_allow_html=True)
         if res.get('puntos_biodiversidad'):
             fig_biodiv = Visualizaciones.crear_grafico_radar_biodiversidad(res['puntos_biodiversidad'][0])
             if fig_biodiv:
+                fig_biodiv.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color='#cbd5e1', size=11),
+                    title=dict(text='', font=dict(size=0)),
+                    polar=dict(bgcolor='rgba(0,0,0,0)',
+                               radialaxis=dict(gridcolor='rgba(255,255,255,0.1)', linecolor='rgba(255,255,255,0.05)')),
+                )
                 st.plotly_chart(fig_biodiv, use_container_width=True)
+
+    # Tabla resumen
+    if 'analisis_forrajero' in res:
+        st.markdown(f"""
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;margin:1.5rem 0 0.5rem;
+                    padding:1rem;background:rgba(255,255,255,0.02);border-radius:12px;
+                    border:1px solid rgba(255,255,255,0.04);">
+            <div><span style="color:#64748b;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;">Productividad</span>
+                 <br><span style="color:#e2e8f0;font-size:1.1rem;font-weight:600;">{forraje_kg:,.0f}</span>
+                 <span style="color:#475569;font-size:0.75rem;"> kg MS/ha</span></div>
+            <div><span style="color:#64748b;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;">Forraje Aprovechable</span>
+                 <br><span style="color:#e2e8f0;font-size:1.1rem;font-weight:600;">{res['analisis_forrajero']['disponibilidad_forrajera']['forraje_aprovechable_kg_ms']/1000:,.1f}</span>
+                 <span style="color:#475569;font-size:0.75rem;"> ton MS</span></div>
+            <div><span style="color:#64748b;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;">EV Recomendados</span>
+                 <br><span style="color:#e2e8f0;font-size:1.1rem;font-weight:600;">{ev_recomendado:.1f}</span>
+                 <span style="color:#475569;font-size:0.75rem;"> EV</span></div>
+            <div><span style="color:#64748b;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;">Sublotes / Potreros</span>
+                 <br><span style="color:#e2e8f0;font-size:1.1rem;font-weight:600;">{len(res['analisis_forrajero']['sublotes'])}</span>
+                 <span style="color:#475569;font-size:0.75rem;"> sublotes</span></div>
+        </div>
+        """, unsafe_allow_html=True)
 
 def mostrar_carbono():
     st.header("🌳 Análisis de Carbono")
@@ -2754,72 +3088,96 @@ def main():
     if 'selected_model' not in st.session_state:
         st.session_state.selected_model = available_models[0] if available_models else "llama3-70b-8192"
 
-    st.title("🌎 Sistema Satelital de Análisis Ambiental Integral")
-    st.markdown("### Carbono + Biodiversidad + Análisis Forrajero")
+    st.markdown("""
+    <div style="display:flex;align-items:center;gap:1rem;margin:0 0 0.25rem 0;">
+        <div style="font-size:2.2rem;">🌎</div>
+        <div>
+            <div style="font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,#60a5fa,#a78bfa);
+                        -webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+                Sistema Satelital de Análisis Ambiental Integral
+            </div>
+            <div style="color:#64748b;font-size:0.85rem;font-weight:400;">
+                Carbono · Biodiversidad · Análisis Forrajero · Pastoreo Racional Voisin
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     with st.sidebar:
-        st.header("📁 Carga de Datos")
+        st.markdown("""
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1.5rem;">
+            <span style="font-size:1.5rem;">🌿</span>
+            <span style="font-size:1.1rem;font-weight:600;color:#f1f5f9;">Panel de Control</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown('<p style="color:#64748b;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">📁 Carga de Datos</p>', unsafe_allow_html=True)
         if GEE_AVAILABLE and st.session_state.gee_authenticated:
-            st.success(f"✅ GEE Conectado")
-        uploaded_file = st.file_uploader("Cargar polígono (KML, GeoJSON, SHP, KMZ)", type=['kml', 'geojson', 'zip', 'kmz'])
+            st.markdown('<div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:0.4rem 0.75rem;font-size:0.75rem;color:#6ee7b7;">✅ GEE Conectado</div>', unsafe_allow_html=True)
+        uploaded_file = st.file_uploader("Cargar polígono (KML, GeoJSON, SHP, KMZ)", type=['kml', 'geojson', 'zip', 'kmz'],
+                                         label_visibility="collapsed")
         if uploaded_file:
             with st.spinner("Procesando archivo..."):
                 gdf = cargar_archivo_parcela(uploaded_file)
                 if gdf is not None:
                     st.session_state.poligono_data = gdf
                     area_ha = calcular_superficie(gdf)
-                    st.info(f"📍 Área calculada: {area_ha:,.1f} ha")
+                    st.markdown(f'<div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.15);border-radius:8px;padding:0.4rem 0.75rem;font-size:0.8rem;color:#93c5fd;">📍 {area_ha:,.1f} ha</div>', unsafe_allow_html=True)
                     sistema = SistemaMapas()
                     st.session_state.mapa = sistema.crear_mapa_area(gdf, zoom_auto=True)
 
         if st.session_state.poligono_data is not None:
-            st.header("⚙️ Configuración")
-            # Lista de ecosistemas actualizada con los nuevos de Argentina
+            st.markdown('<hr style="border-color:rgba(255,255,255,0.05);margin:1rem 0;">', unsafe_allow_html=True)
+            st.markdown('<p style="color:#64748b;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">⚙️ Configuración</p>', unsafe_allow_html=True)
             ecosistemas = [
                 'amazonia', 'choco', 'andes', 'pampa', 'seco', 
                 'cultivo', 'vid', 'agricola',
                 'monte', 'espinal', 'yungas', 'chaqueño', 'patagonico', 'paranaense'
             ]
-            tipo_ecosistema = st.selectbox("Tipo de ecosistema", ecosistemas)
-            num_puntos = st.slider("Número de puntos de muestreo", 10, 200, 50)
+            tipo_ecosistema = st.selectbox("Ecosistema", ecosistemas, label_visibility="collapsed")
+            num_puntos = st.slider("Puntos de muestreo", 10, 200, 50)
             usar_gee = False
             if GEE_AVAILABLE and st.session_state.gee_authenticated:
                 usar_gee = st.checkbox("Usar datos reales de GEE")
             
-            # Selector de modelo de IA (Groq)
             if available_models:
                 st.session_state.selected_model = st.selectbox(
-                    "Modelo de IA (Groq)",
+                    "Modelo IA",
                     available_models,
                     index=available_models.index(st.session_state.selected_model) if st.session_state.selected_model in available_models else 0,
-                    help="Selecciona el modelo para los análisis con IA. Los más potentes son llama3-70b-8192 y mixtral-8x7b-32768."
+                    label_visibility="collapsed",
                 )
-                st.success(f"✅ Modelo seleccionado: {st.session_state.selected_model}")
-            else:
-                st.warning("No hay modelos disponibles. Verifique la API key de Groq.")
             
+            st.markdown('<br>', unsafe_allow_html=True)
             if st.button("🚀 Ejecutar Análisis Completo", type="primary", use_container_width=True):
                 with st.spinner("Analizando..."):
                     resultados = ejecutar_analisis_completo(st.session_state.poligono_data, tipo_ecosistema, num_puntos, usar_gee)
                     if resultados:
                         st.session_state.resultados = resultados
-                        st.success("✅ Análisis completado!")
+                        st.markdown('<div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:0.5rem 0.75rem;font-size:0.85rem;color:#6ee7b7;text-align:center;">✅ Análisis completado</div>', unsafe_allow_html=True)
 
     if st.session_state.poligono_data is None:
-        st.info("👈 Cargue un polígono en el panel lateral para comenzar")
+        st.markdown("""
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                    min-height:50vh;text-align:center;gap:1rem;">
+            <div style="font-size:4rem;opacity:0.6;">🌿</div>
+            <div style="font-size:1.3rem;font-weight:500;color:#94a3b8;">Cargue un polígono en el panel lateral</div>
+            <div style="color:#475569;font-size:0.85rem;max-width:380px;">
+                Formatos soportados: KML, KMZ, GeoJSON o Shapefile (ZIP)
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         with st.expander("📋 Información del Sistema"):
             st.markdown("""
-            ### Sistema Integrado de Análisis Ambiental Satelital
-            **Características:**
-            - 🌳 Metodología Verra VCS para cálculo de carbono
-            - 🦋 Índice de Shannon para biodiversidad
-            - 📈 NDVI, NDWI, NDRE, MSAVI, EVI
-            - 🐮 Análisis forrajero (productividad, EV, rotación)
-            - 🐄 Pastoreo Racional Voisin (PRV): potreros, ciclos, calendario
-            - 🗺️ Mapas de calor continuos con interpolación KNN
-            - 📊 Dashboard interactivo y gráficos
-            - 📄 Informes PDF/DOCX/GeoJSON y con IA (Groq)
-            - 🌍 Ecosistemas argentinos incluidos: monte, espinal, yungas, chaqueño, patagonico, paranaense
+            - 🌳 **Carbono** — Metodología Verra VCS
+            - 🦋 **Biodiversidad** — Índice de Shannon
+            - 📈 **Índices espectrales** — NDVI, NDWI, NDRE, MSAVI, EVI
+            - 🐮 **Forrajero** — Productividad, EV, rotación
+            - 🐄 **Pastoreo Racional Voisin** — Potreros, ciclos, calendario
+            - 🗺️ **Mapas** — Interpolación KNN, calor continuo
+            - 📊 **Dashboard** — KPIs, gráficos ejecutivos
+            - 📄 **Informes** — PDF, DOCX, GeoJSON y con IA (Groq)
+            - 🌍 **Ecosistemas argentinos** — monte, espinal, yungas, chaqueño, patagonico, paranaense
             """)
     else:
         tabs = st.tabs(["🗺️ Mapas", "📊 Dashboard", "🌳 Carbono", "🦋 Biodiversidad", "🐮 Forrajero", "🐄 PRV Voisin", "📈 Comparación", "📥 Informe"])
