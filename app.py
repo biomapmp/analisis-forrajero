@@ -765,15 +765,19 @@ class SistemaMapas:
 
     @staticmethod
     def crear_mapa_con_base(gdf, zoom_extra=0):
-        """Crea un mapa Folium con zoom automático."""
+        """Crea un mapa Folium con zoom automático al polígono."""
         bounds = gdf.total_bounds
         centro = [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]
         m = folium.Map(location=centro, zoom_start=12, tiles='OpenStreetMap', control_scale=True)
-        margin = 0.005 * (1 + zoom_extra)
+        ancho = max(bounds[2] - bounds[0], 0.001)
+        alto = max(bounds[3] - bounds[1], 0.001)
+        margin = max(ancho, alto) * (0.08 * (1 + zoom_extra * 0.5))
         m.fit_bounds(
             [[bounds[1] - margin, bounds[0] - margin],
              [bounds[3] + margin, bounds[2] + margin]]
         )
+        Fullscreen().add_to(m)
+        MousePosition().add_to(m)
         return m
 
     def _generar_malla_puntos(self, gdf, densidad=1200):
