@@ -171,12 +171,11 @@ class ModeloPRV:
         potreros = gdf.dissolve(by="potrero_id", aggfunc={
             "productividad_kg_ms_ha": "mean",
         }).reset_index()
-        potreros.columns = ["potrero_id", "geometry", "productividad_prom_kg_ms_ha"]
 
         potreros["area_ha"] = potreros.geometry.area * 111000 * 111000 / 10000
         potreros["productividad_relativa"] = (
-            potreros["productividad_prom_kg_ms_ha"]
-            / potreros["productividad_prom_kg_ms_ha"].mean()
+            potreros["productividad_kg_ms_ha"]
+            / potreros["productividad_kg_ms_ha"].mean()
         )
 
         potreros = potreros.sort_values("potrero_id").reset_index(drop=True)
@@ -392,7 +391,10 @@ class ModeloPRV:
         sin_plan = len(estados_df[estados_df["estado"] == "sin_planificar"])
 
         area_total = gdf_potreros["area_ha"].sum()
-        prod_prom = gdf_potreros["productividad_kg_ms_ha"].mean()
+        col_prod = "productividad_kg_ms_ha"
+        if col_prod not in gdf_potreros.columns:
+            col_prod = "productividad_prom_kg_ms_ha" if "productividad_prom_kg_ms_ha" in gdf_potreros.columns else None
+        prod_prom = gdf_potreros[col_prod].mean() if col_prod else 0
 
         lineas = [
             f"📋 **Plan de Pastoreo Racional Voisin**",
