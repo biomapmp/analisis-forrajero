@@ -2987,8 +2987,9 @@ def mostrar_prv():
             elif val == 'por_pastorear': return 'background-color: #FEF3C7'
             return ''
 
+        apply_func = getattr(df_estados.style, 'map', df_estados.style.applymap)
         st.dataframe(
-            df_estados.style.applymap(color_estado_row, subset=['estado']),
+            apply_func(color_estado_row, subset=['estado']),
             use_container_width=True,
             hide_index=True,
         )
