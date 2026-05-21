@@ -771,12 +771,13 @@ class SistemaMapas:
             raise ValueError("total_bounds contiene NaN")
         centro = [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]
         m = folium.Map(location=centro, zoom_start=12, tiles='OpenStreetMap', control_scale=True)
-        ancho = max(bounds[2] - bounds[0], 0.001)
-        alto = max(bounds[3] - bounds[1], 0.001)
-        margin = max(ancho, alto) * (0.04 * (1 + zoom_extra * 0.3))
+        ancho = bounds[2] - bounds[0] or 0.001
+        alto = bounds[3] - bounds[1] or 0.001
+        margin = max(ancho, alto) * 0.04 * (1 + zoom_extra * 0.3)
         m.fit_bounds(
             [[bounds[1] - margin, bounds[0] - margin],
-             [bounds[3] + margin, bounds[2] + margin]]
+             [bounds[3] + margin, bounds[2] + margin]],
+            max_zoom=18
         )
         Fullscreen().add_to(m)
         MousePosition().add_to(m)
@@ -2862,7 +2863,7 @@ def mostrar_analisis_forrajero():
         st.subheader("🗺️ Mapa de Productividad por Sublotes")
         sistema = SistemaMapas()
         try:
-            m = SistemaMapas.crear_mapa_con_base(res['gdf_cuadricula'])
+            m = SistemaMapas.crear_mapa_con_base(st.session_state.poligono_data)
             min_prod = res['gdf_cuadricula']['productividad_kg_ms_ha'].min()
             max_prod = res['gdf_cuadricula']['productividad_kg_ms_ha'].max()
             colormap = LinearColormap(colors=['#8B4513', '#CD853F', '#F4A460', '#9ACD32', '#32CD32', '#006400'], vmin=min_prod, vmax=max_prod)
