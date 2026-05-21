@@ -770,15 +770,16 @@ class SistemaMapas:
         if any(b != b for b in bounds):
             raise ValueError("total_bounds contiene NaN")
         centro = [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]
-        m = folium.Map(location=centro, zoom_start=12, tiles='OpenStreetMap', control_scale=True)
-        ancho = bounds[2] - bounds[0] or 0.001
-        alto = bounds[3] - bounds[1] or 0.001
-        margin = max(ancho, alto) * 0.04 * (1 + zoom_extra * 0.3)
-        m.fit_bounds(
-            [[bounds[1] - margin, bounds[0] - margin],
-             [bounds[3] + margin, bounds[2] + margin]],
-            max_zoom=18
-        )
+        span = max(abs(bounds[2] - bounds[0]), abs(bounds[3] - bounds[1]), 0.001)
+        # Heurística de zoom según el tamaño del polígono en grados
+        thresholds = [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+        zoom = 8
+        for t, z in zip(thresholds, range(18, 8, -1)):
+            if span <= t:
+                zoom = z
+                break
+        zoom = max(8, min(18, zoom))
+        m = folium.Map(location=centro, zoom_start=zoom, tiles='OpenStreetMap', control_scale=True)
         Fullscreen().add_to(m)
         MousePosition().add_to(m)
         return m
