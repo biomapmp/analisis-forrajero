@@ -1291,21 +1291,18 @@ class Visualizaciones:
                             ndvi: float = 0, ndwi: float = 0, forraje_kg: float = 0, ev: float = 0):
         def _card(icon, label, value, unit, gradient, badge=None):
             badge_html = f'<span style="background:rgba(255,255,255,0.15);padding:2px 8px;border-radius:20px;font-size:0.65rem;margin-left:6px;">{badge}</span>' if badge else ''
-            return f"""
-            <div style="background:{gradient};padding:1.25rem 1.5rem;border-radius:14px;
-                        border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(8px);
-                        box-shadow:0 4px 20px rgba(0,0,0,0.2);transition:all 0.25s ease;">
-                <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
-                    <span style="font-size:1.1rem;">{icon}</span>
-                    <span style="color:rgba(255,255,255,0.7);font-size:0.75rem;font-weight:500;text-transform:uppercase;letter-spacing:0.05em;">
-                        {label}{badge_html}
-                    </span>
-                </div>
-                <div style="font-size:1.9rem;font-weight:700;color:white;letter-spacing:-0.02em;line-height:1.1;">
-                    {value}
-                </div>
-                <div style="color:rgba(255,255,255,0.5);font-size:0.7rem;margin-top:0.15rem;">{unit}</div>
-            </div>"""
+            return (
+                '<div style="background:' + gradient + ';padding:1.25rem 1.5rem;border-radius:14px;'
+                'border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(8px);'
+                'box-shadow:0 4px 20px rgba(0,0,0,0.2);transition:all 0.25s ease;">'
+                '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">'
+                '<span style="font-size:1.1rem;">' + icon + '</span>'
+                '<span style="color:rgba(255,255,255,0.7);font-size:0.75rem;font-weight:500;text-transform:uppercase;letter-spacing:0.05em;">'
+                + label + badge_html + '</span></div>'
+                '<div style="font-size:1.9rem;font-weight:700;color:white;letter-spacing:-0.02em;line-height:1.1;">'
+                + value + '</div>'
+                '<div style="color:rgba(255,255,255,0.5);font-size:0.7rem;margin-top:0.15rem;">' + unit + '</div></div>'
+            )
 
         cards = []
         cards.append(_card("🌳", "Carbono Total", f"{carbono_total:,.0f}", "ton C almacenadas",
@@ -1318,7 +1315,6 @@ class Visualizaciones:
         cards.append(_card("📐", "Área de Estudio", f"{area:,.1f}", "hectáreas",
                            "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)"))
 
-        # Segunda fila si hay datos forrajeros
         if forraje_kg > 0:
             cards.append(_card("🌿", "Productividad Forrajera", f"{forraje_kg:,.0f}", "kg MS/ha",
                                "linear-gradient(135deg, #92400e 0%, #d97706 100%)"))
@@ -1330,11 +1326,10 @@ class Visualizaciones:
         cards.append(_card("💧", "NDWI Promedio", f"{ndwi:.3f}", "Contenido de agua",
                            "linear-gradient(135deg, #0c4a6e 0%, #0284c7 100%)"))
 
-        html = f"""
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.5rem;">
-            {''.join(cards)}
-        </div>"""
-        return html
+        return (
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.5rem;">'
+            + ''.join(cards) + '</div>'
+        )
 
 # ===============================
 # 📄 GENERADOR DE REPORTES
@@ -2505,20 +2500,23 @@ def mostrar_dashboard():
     )
     st.markdown(html_kpi, unsafe_allow_html=True)
 
-    st.markdown(f"""
-    <div style="display:flex;gap:1rem;align-items:center;margin:1rem 0 1.5rem;
-                background:rgba(255,255,255,0.03);border-radius:12px;padding:0.75rem 1.25rem;
-                border:1px solid rgba(255,255,255,0.05);">
-        <span style="font-size:0.85rem;color:#94a3b8;">Ecosistema:</span>
-        <span style="font-weight:600;color:#e2e8f0;">{res.get('tipo_ecosistema', '').title()}</span>
-        <span style="color:#475569;">|</span>
-        <span style="font-size:0.85rem;color:#94a3b8;">Puntos de muestreo:</span>
-        <span style="font-weight:600;color:#e2e8f0;">{res.get('num_puntos', 0)}</span>
-        <span style="color:#475569;">|</span>
-        <span style="font-size:0.85rem;color:#94a3b8;">Sistema forrajero:</span>
-        <span style="font-weight:600;color:#e2e8f0;">{res.get('analisis_forrajero', {}).get('sistema_forrajero', 'N/A').replace('_', ' ').title()}</span>
-    </div>
-    """, unsafe_allow_html=True)
+    eco = str(res.get('tipo_ecosistema', '')).title()
+    pts = str(res.get('num_puntos', 0))
+    sis = str(res.get('analisis_forrajero', {}).get('sistema_forrajero', 'N/A')).replace('_', ' ').title()
+    st.markdown(
+        '<div style="display:flex;gap:1rem;align-items:center;margin:1rem 0 1.5rem;'
+        'background:rgba(255,255,255,0.03);border-radius:12px;padding:0.75rem 1.25rem;'
+        'border:1px solid rgba(255,255,255,0.05);">'
+        '<span style="font-size:0.85rem;color:#94a3b8;">Ecosistema:</span>'
+        '<span style="font-weight:600;color:#e2e8f0;">' + eco + '</span>'
+        '<span style="color:#475569;">|</span>'
+        '<span style="font-size:0.85rem;color:#94a3b8;">Puntos de muestreo:</span>'
+        '<span style="font-weight:600;color:#e2e8f0;">' + pts + '</span>'
+        '<span style="color:#475569;">|</span>'
+        '<span style="font-size:0.85rem;color:#94a3b8;">Sistema forrajero:</span>'
+        '<span style="font-weight:600;color:#e2e8f0;">' + sis + '</span></div>',
+        unsafe_allow_html=True
+    )
 
     col_left, col_right = st.columns([1.2, 1])
 
@@ -2551,24 +2549,28 @@ def mostrar_dashboard():
 
     # Tabla resumen
     if 'analisis_forrajero' in res:
-        st.markdown(f"""
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;margin:1.5rem 0 0.5rem;
-                    padding:1rem;background:rgba(255,255,255,0.02);border-radius:12px;
-                    border:1px solid rgba(255,255,255,0.04);">
-            <div><span style="color:#64748b;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;">Productividad</span>
-                 <br><span style="color:#e2e8f0;font-size:1.1rem;font-weight:600;">{forraje_kg:,.0f}</span>
-                 <span style="color:#475569;font-size:0.75rem;"> kg MS/ha</span></div>
-            <div><span style="color:#64748b;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;">Forraje Aprovechable</span>
-                 <br><span style="color:#e2e8f0;font-size:1.1rem;font-weight:600;">{res['analisis_forrajero']['disponibilidad_forrajera']['forraje_aprovechable_kg_ms']/1000:,.1f}</span>
-                 <span style="color:#475569;font-size:0.75rem;"> ton MS</span></div>
-            <div><span style="color:#64748b;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;">EV Recomendados</span>
-                 <br><span style="color:#e2e8f0;font-size:1.1rem;font-weight:600;">{ev_recomendado:.1f}</span>
-                 <span style="color:#475569;font-size:0.75rem;"> EV</span></div>
-            <div><span style="color:#64748b;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;">Sublotes / Potreros</span>
-                 <br><span style="color:#e2e8f0;font-size:1.1rem;font-weight:600;">{len(res['analisis_forrajero']['sublotes'])}</span>
-                 <span style="color:#475569;font-size:0.75rem;"> sublotes</span></div>
-        </div>
-        """, unsafe_allow_html=True)
+        prod = f"{forraje_kg:,.0f}"
+        apro = f"{res['analisis_forrajero']['disponibilidad_forrajera']['forraje_aprovechable_kg_ms']/1000:,.1f}"
+        evs = f"{ev_recomendado:.1f}"
+        subs = str(len(res['analisis_forrajero']['sublotes']))
+        st.markdown(
+            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;margin:1.5rem 0 0.5rem;'
+            'padding:1rem;background:rgba(255,255,255,0.02);border-radius:12px;'
+            'border:1px solid rgba(255,255,255,0.04);">'
+            '<div><span style="color:#64748b;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;">Productividad</span>'
+            '<br><span style="color:#e2e8f0;font-size:1.1rem;font-weight:600;">' + prod + '</span>'
+            '<span style="color:#475569;font-size:0.75rem;"> kg MS/ha</span></div>'
+            '<div><span style="color:#64748b;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;">Forraje Aprovechable</span>'
+            '<br><span style="color:#e2e8f0;font-size:1.1rem;font-weight:600;">' + apro + '</span>'
+            '<span style="color:#475569;font-size:0.75rem;"> ton MS</span></div>'
+            '<div><span style="color:#64748b;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;">EV Recomendados</span>'
+            '<br><span style="color:#e2e8f0;font-size:1.1rem;font-weight:600;">' + evs + '</span>'
+            '<span style="color:#475569;font-size:0.75rem;"> EV</span></div>'
+            '<div><span style="color:#64748b;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;">Sublotes / Potreros</span>'
+            '<br><span style="color:#e2e8f0;font-size:1.1rem;font-weight:600;">' + subs + '</span>'
+            '<span style="color:#475569;font-size:0.75rem;"> sublotes</span></div></div>',
+            unsafe_allow_html=True
+        )
 
 def mostrar_carbono():
     st.header("🌳 Análisis de Carbono")
@@ -2614,16 +2616,15 @@ def mostrar_carbono():
     # CALCULADORA DE HUELLA DE CARBONO GANADERA
     # =================================================================
     st.divider()
-    st.markdown("""
-    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;">
-        <span style="font-size:1.5rem;">🐄</span>
-        <span style="font-size:1.15rem;font-weight:600;color:#f1f5f9;">Calculadora de Huella de Carbono Ganadera</span>
-    </div>
-    <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem;">
-        Estimá las emisiones de tu rodeo y comparalas con el carbono secuestrado en tu campo
-        para conocer tu <strong>balance de carbono</strong> y el potencial de créditos comercializables.
-    </p>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        '<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;">'
+        '<span style="font-size:1.5rem;">🐄</span>'
+        '<span style="font-size:1.15rem;font-weight:600;color:#f1f5f9;">Calculadora de Huella de Carbono Ganadera</span></div>'
+        '<p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1.25rem;">'
+        'Estimá las emisiones de tu rodeo y comparalas con el carbono secuestrado en tu campo'
+        ' para conocer tu <strong>balance de carbono</strong> y el potencial de créditos comercializables.</p>',
+        unsafe_allow_html=True
+    )
 
     with st.expander("📝 Datos del rodeo", expanded=True):
         col1, col2 = st.columns(2)
@@ -2733,30 +2734,24 @@ def mostrar_carbono():
                 delta_color = "red"
                 delta_texto = "negativo — las emisiones superan la captura. Revisá las recomendaciones abajo."
 
-            st.markdown(f"""
-            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);
-                        border-radius:14px;padding:1.5rem;margin:1rem 0;">
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
-                    <div>
-                        <div style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;">CO₂ Secuestrado (satélite)</div>
-                        <div style="font-size:2rem;font-weight:700;color:#10b981;">{co2_secuestrado:,.0f} <span style="font-size:0.9rem;color:#6ee7b7;">ton CO₂e/año</span></div>
-                    </div>
-                    <div style="color:#475569;font-size:1.5rem;">−</div>
-                    <div>
-                        <div style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;">Emisiones ganaderas</div>
-                        <div style="font-size:2rem;font-weight:700;color:#ef4444;">{emisiones_totales_co2e:,.0f} <span style="font-size:0.9rem;color:#fca5a5;">ton CO₂e/año</span></div>
-                    </div>
-                    <div style="color:#475569;font-size:1.5rem;">=</div>
-                    <div>
-                        <div style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;">Balance neto</div>
-                        <div style="font-size:2rem;font-weight:700;color:{'#10b981' if balance_co2e > 0 else '#ef4444'};">{balance_co2e:+,.0f} <span style="font-size:0.9rem;color:{'#6ee7b7' if balance_co2e > 0 else '#fca5a5'};">ton CO₂e/año</span></div>
-                    </div>
-                </div>
-                <div style="margin-top:1rem;padding:0.5rem 0.75rem;background:rgba(255,255,255,0.04);border-radius:8px;font-size:0.85rem;color:#cbd5e1;">
-                    📌 Balance {delta_texto}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            color_balance = '#10b981' if balance_co2e > 0 else '#ef4444'
+            color_balance_text = '#6ee7b7' if balance_co2e > 0 else '#fca5a5'
+            st.markdown(
+                '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);'
+                'border-radius:14px;padding:1.5rem;margin:1rem 0;">'
+                '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">'
+                '<div><div style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;">CO\u2082 Secuestrado (sat\u00e9lite)</div>'
+                '<div style="font-size:2rem;font-weight:700;color:#10b981;">' + f'{co2_secuestrado:,.0f}' + ' <span style="font-size:0.9rem;color:#6ee7b7;">ton CO\u2082e/a\u00f1o</span></div></div>'
+                '<div style="color:#475569;font-size:1.5rem;">\u2212</div>'
+                '<div><div style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;">Emisiones ganaderas</div>'
+                '<div style="font-size:2rem;font-weight:700;color:#ef4444;">' + f'{emisiones_totales_co2e:,.0f}' + ' <span style="font-size:0.9rem;color:#fca5a5;">ton CO\u2082e/a\u00f1o</span></div></div>'
+                '<div style="color:#475569;font-size:1.5rem;">=</div>'
+                '<div><div style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;">Balance neto</div>'
+                '<div style="font-size:2rem;font-weight:700;color:' + color_balance + ';">' + f'{balance_co2e:+,.0f}' + ' <span style="font-size:0.9rem;color:' + color_balance_text + ';">ton CO\u2082e/a\u00f1o</span></div></div></div>'
+                '<div style="margin-top:1rem;padding:0.5rem 0.75rem;background:rgba(255,255,255,0.04);border-radius:8px;font-size:0.85rem;color:#cbd5e1;">'
+                '\U0001f4cc Balance ' + delta_texto + '</div></div>',
+                unsafe_allow_html=True
+            )
 
             # Potencial económico
             st.subheader("💰 Potencial de Créditos de Carbono")
@@ -3234,14 +3229,14 @@ def mostrar_prv():
 
 def mostrar_asistente_prv():
     st.header("🤖 Asistente IA — Transición a PRV Regenerativo")
-    st.markdown("""
-    <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.15);
-                border-radius:12px;padding:1rem;margin-bottom:1.5rem;">
-        Este asistente te ayuda a diseñar un plan personalizado de transición desde tu sistema actual
-        hacia el <strong>Pastoreo Racional Voisin (PRV)</strong> con enfoque de <strong>ganadería regenerativa</strong>.
-        Completá los datos de tu establecimiento y recibí un plan paso a paso.
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        '<div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.15);'
+        'border-radius:12px;padding:1rem;margin-bottom:1.5rem;">'
+        'Este asistente te ayuda a diseñar un plan personalizado de transición desde tu sistema actual'
+        ' hacia el <strong>Pastoreo Racional Voisin (PRV)</strong> con enfoque de <strong>ganadería regenerativa</strong>.'
+        ' Completá los datos de tu establecimiento y recibí un plan paso a paso.</div>',
+        unsafe_allow_html=True
+    )
 
     # Formulario
     with st.expander("📝 Datos del establecimiento", expanded=True):
@@ -3296,13 +3291,13 @@ def mostrar_asistente_prv():
         st.markdown(plan)
 
         st.divider()
-        st.markdown("""
-        <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.1);
-                    border-radius:10px;padding:0.75rem 1rem;font-size:0.85rem;">
-            💡 <strong>Sugerencia:</strong> Compartí este plan con tu asesor técnico y ajustalo
-            según las condiciones reales de tu campo. El PRV se construye observando y adaptando.
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            '<div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.1);'
+            'border-radius:10px;padding:0.75rem 1rem;font-size:0.85rem;">'
+            '💡 <strong>Sugerencia:</strong> Compartí este plan con tu asesor técnico y ajustalo'
+            ' según las condiciones reales de tu campo. El PRV se construye observando y adaptando.</div>',
+            unsafe_allow_html=True
+        )
 
     # Si el análisis ya se ejecutó, mostrar info complementaria
     if st.session_state.resultados and 'prv' in st.session_state.resultados:
@@ -3376,28 +3371,24 @@ def main():
     if 'selected_model' not in st.session_state:
         st.session_state.selected_model = available_models[0] if available_models else "llama3-70b-8192"
 
-    st.markdown("""
-    <div style="display:flex;align-items:center;gap:1rem;margin:0 0 0.25rem 0;">
-        <div style="font-size:2.2rem;">🌎</div>
-        <div>
-            <div style="font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,#60a5fa,#a78bfa);
-                        -webkit-background-clip:text;-webkit-text-fill-color:transparent;">
-                Sistema Satelital de Análisis Ambiental Integral
-            </div>
-            <div style="color:#64748b;font-size:0.85rem;font-weight:400;">
-                Carbono · Biodiversidad · Análisis Forrajero · Pastoreo Racional Voisin
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        '<div style="display:flex;align-items:center;gap:1rem;margin:0 0 0.25rem 0;">'
+        '<div style="font-size:2.2rem;">🌎</div>'
+        '<div><div style="font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,#60a5fa,#a78bfa);'
+        '-webkit-background-clip:text;-webkit-text-fill-color:transparent;">'
+        'Sistema Satelital de Análisis Ambiental Integral</div>'
+        '<div style="color:#64748b;font-size:0.85rem;font-weight:400;">'
+        'Carbono · Biodiversidad · Análisis Forrajero · Pastoreo Racional Voisin</div></div></div>',
+        unsafe_allow_html=True
+    )
 
     with st.sidebar:
-        st.markdown("""
-        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1.5rem;">
-            <span style="font-size:1.5rem;">🌿</span>
-            <span style="font-size:1.1rem;font-weight:600;color:#f1f5f9;">Panel de Control</span>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1.5rem;">'
+            '<span style="font-size:1.5rem;">🌿</span>'
+            '<span style="font-size:1.1rem;font-weight:600;color:#f1f5f9;">Panel de Control</span></div>',
+            unsafe_allow_html=True
+        )
 
         st.markdown('<p style="color:#64748b;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">📁 Carga de Datos</p>', unsafe_allow_html=True)
         if GEE_AVAILABLE and st.session_state.gee_authenticated:
@@ -3445,16 +3436,15 @@ def main():
                         st.markdown('<div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:0.5rem 0.75rem;font-size:0.85rem;color:#6ee7b7;text-align:center;">✅ Análisis completado</div>', unsafe_allow_html=True)
 
     if st.session_state.poligono_data is None:
-        st.markdown("""
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
-                    min-height:50vh;text-align:center;gap:1rem;">
-            <div style="font-size:4rem;opacity:0.6;">🌿</div>
-            <div style="font-size:1.3rem;font-weight:500;color:#94a3b8;">Cargue un polígono en el panel lateral</div>
-            <div style="color:#475569;font-size:0.85rem;max-width:380px;">
-                Formatos soportados: KML, KMZ, GeoJSON o Shapefile (ZIP)
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;'
+            'min-height:50vh;text-align:center;gap:1rem;">'
+            '<div style="font-size:4rem;opacity:0.6;">🌿</div>'
+            '<div style="font-size:1.3rem;font-weight:500;color:#94a3b8;">Cargue un polígono en el panel lateral</div>'
+            '<div style="color:#475569;font-size:0.85rem;max-width:380px;">'
+            'Formatos soportados: KML, KMZ, GeoJSON o Shapefile (ZIP)</div></div>',
+            unsafe_allow_html=True
+        )
         with st.expander("📋 Información del Sistema"):
             st.markdown("""
             - 🌳 **Carbono** — Metodología Verra VCS
