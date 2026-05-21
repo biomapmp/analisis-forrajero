@@ -2527,7 +2527,7 @@ def mostrar_dashboard():
             fig_carbono.update_layout(
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#cbd5e1', size=11),
-                title=dict(text='', font=dict(size=0)),
+                title=None,
             )
             fig_carbono.update_xaxes(gridcolor='rgba(255,255,255,0.05)')
             fig_carbono.update_yaxes(gridcolor='rgba(255,255,255,0.05)')
@@ -2541,7 +2541,7 @@ def mostrar_dashboard():
                 fig_biodiv.update_layout(
                     paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                     font=dict(color='#cbd5e1', size=11),
-                    title=dict(text='', font=dict(size=0)),
+                title=None,
                     polar=dict(bgcolor='rgba(0,0,0,0)',
                                radialaxis=dict(gridcolor='rgba(255,255,255,0.1)', linecolor='rgba(255,255,255,0.05)')),
                 )
