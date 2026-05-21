@@ -6,7 +6,7 @@ Proporciona funciones de análisis de texto y preparación de datos.
 import os
 import json
 import random
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, List, Tuple, Union
 import pandas as pd
 import numpy as np
 
@@ -143,4 +143,72 @@ def generar_recomendaciones_integradas(df: pd.DataFrame, stats: Dict) -> str:
         f"con ecosistema {stats['tipo_ecosistema']}. "
         f"Considera carbono, biodiversidad y producción forrajera."
     )
+    return _consulta_ia(prompt)
+
+
+def generar_plan_transicion_prv(params: Dict[str, Any]) -> str:
+    """
+    Genera un plan de transición de ganadería convencional a PRV
+    con enfoque de ganadería regenerativa.
+
+    Parámetros:
+        params: Diccionario con datos del establecimiento:
+            - tipo_ganado (str): bovino, ovino, caprino, etc.
+            - cabeza (int): cantidad de animales
+            - area_ha (float): hectáreas totales
+            - sistema_actual (str): pastoreo continuo, rotativo simple, estabulado, etc.
+            - descanso_actual_dias (int): días de descanso actuales
+            - ocupacion_actual_dias (int): días de ocupación actuales
+            - tiene_agua (bool): disponibilidad de agua en potreros
+            - tiene_divisiones (bool): si ya tiene potreros divididos
+            - condicion_suelo (str): degradado, regular, bueno, excelente
+            - objetivo_principal (str): carne, leche, mixto, regeneración
+            - ecosistema (str): tipo de ecosistema
+            - productividad_forraje (float): kg MS/ha estimado
+    """
+    tipo = params.get('tipo_ganado', 'bovino')
+    cabeza = params.get('cabeza', 0)
+    area = params.get('area_ha', 0)
+    sistema = params.get('sistema_actual', 'pastoreo continuo')
+    descanso = params.get('descanso_actual_dias', 0)
+    ocupacion = params.get('ocupacion_actual_dias', 0)
+    tiene_agua = params.get('tiene_agua', False)
+    tiene_div = params.get('tiene_divisiones', False)
+    suelo = params.get('condicion_suelo', 'regular')
+    objetivo = params.get('objetivo_principal', 'carne')
+    ecosistema = params.get('ecosistema', 'no especificado')
+    prod_forraje = params.get('productividad_forraje', 0)
+
+    prompt = f"""
+Eres un especialista en Pastoreo Racional Voisin (PRV) y ganadería regenerativa con 30 años de experiencia en Latinoamérica.
+
+Un productor quiere migrar de su sistema actual a PRV. Sus datos:
+
+- **Tipo de ganado:** {tipo}
+- **Cantidad de animales:** {cabeza} cabezas
+- **Superficie total:** {area:.1f} ha
+- **Sistema actual:** {sistema}
+- **Descanso actual:** {descanso} días
+- **Ocupación actual:** {ocupacion} días
+- **Dispone de agua en potreros:** {'Sí' if tiene_agua else 'No'}
+- **Divisiones existentes:** {'Sí' if tiene_div else 'No'}
+- **Condición del suelo:** {suelo}
+- **Objetivo principal:** {objetivo}
+- **Ecosistema:** {ecosistema}
+- **Productividad forrajera:** {prod_forraje:,.0f} kg MS/ha
+
+Genera un plan de transición PRV estructurado en estas secciones:
+
+1. **Diagnóstico rápido**: evalúa el punto de partida y las oportunidades principales.
+2. **Diseño PRV propuesto**: número de potreros sugerido, días de descanso según estación, ocupación ideal, carga animal instantánea (EV/ha).
+3. **Plan de transición por etapas** (6 a 18 meses):
+   - Etapa 1 (0-3 meses): adecuaciones de infraestructura (agua, divisiones, sombra)
+   - Etapa 2 (3-6 meses): implementación inicial con pocos potreros
+   - Etapa 3 (6-12 meses): ajuste de carga y períodos
+   - Etapa 4 (12-18 meses): consolidación PRV pleno
+4. **Recomendaciones regenerativas específicas**: manejo de suelo, pasturas perennes, integración arbórea, abrevado rotativo.
+5. **Indicadores de éxito**: qué medir y cómo saber si la transición va bien.
+
+Responde en español claro y técnico. Usa viñetas y maximiza el contenido práctico. No des rodeos teóricos innecesarios. Máximo 600 palabras.
+"""
     return _consulta_ia(prompt)

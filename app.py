@@ -211,6 +211,7 @@ from modules.ia_integration import (
     generar_analisis_espectral,
     generar_analisis_forrajero,
     generar_recomendaciones_integradas,
+    generar_plan_transicion_prv,
     available_models,
     client as groq_client,
     GROQ_API_KEY
@@ -3038,6 +3039,92 @@ def mostrar_prv():
     st.markdown(prv_data.get('recomendaciones', 'No hay recomendaciones disponibles.'))
 
 
+def mostrar_asistente_prv():
+    st.header("🤖 Asistente IA — Transición a PRV Regenerativo")
+    st.markdown("""
+    <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.15);
+                border-radius:12px;padding:1rem;margin-bottom:1.5rem;">
+        Este asistente te ayuda a diseñar un plan personalizado de transición desde tu sistema actual
+        hacia el <strong>Pastoreo Racional Voisin (PRV)</strong> con enfoque de <strong>ganadería regenerativa</strong>.
+        Completá los datos de tu establecimiento y recibí un plan paso a paso.
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Formulario
+    with st.expander("📝 Datos del establecimiento", expanded=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            tipo_ganado = st.selectbox("Tipo de ganado", ["bovino", "ovino", "caprino", "bufalino", "mixto"], index=0)
+            cabeza = st.number_input("Cantidad de animales", min_value=1, max_value=100000, value=100, step=10)
+            area_ha = st.number_input("Superficie total (ha)", min_value=0.5, max_value=100000.0, value=100.0, step=10.0)
+            sistema_actual = st.selectbox("Sistema actual de pastoreo", [
+                "pastoreo continuo", "pastoreo rotativo simple (3-4 potreros)",
+                "pastoreo rotativo intensivo (5-8 potreros)", "estabulado / confinamiento",
+                "pastoreo en franjas", "sin pastoreo (solo heno/silo)"
+            ], index=0)
+        with col2:
+            condicion_suelo = st.selectbox("Condición del suelo", ["degradado", "regular", "bueno", "excelente"], index=1)
+            objetivo = st.selectbox("Objetivo principal", ["carne", "leche", "mixto (carne y leche)", "regeneración / carbono", "cria / recria"], index=0)
+            tiene_agua = st.checkbox("Dispongo de agua en todos los potreros", value=True)
+            tiene_divisiones = st.checkbox("Ya tengo divisiones / potreros", value=False)
+            if tiene_divisiones:
+                descanso_actual = st.slider("Días de descanso actuales", 0, 120, 30)
+                ocupacion_actual = st.slider("Días de ocupación actuales", 1, 30, 7)
+            else:
+                descanso_actual = 0
+                ocupacion_actual = 0
+
+        prod_forraje_est = st.number_input(
+            "Productividad forrajera estimada (kg MS/ha) — dejar en 0 si no se sabe",
+            min_value=0, max_value=50000, value=0, step=500
+        )
+        ecosistema = st.text_input("Ecosistema / región", placeholder="ej. Pampa, Chaqueño, Espinal, etc.")
+
+    if st.button("🤖 Generar plan de transición PRV", use_container_width=True, type="primary"):
+        with st.spinner("El asistente IA está preparando tu plan personalizado..."):
+            params = {
+                "tipo_ganado": tipo_ganado,
+                "cabeza": cabeza,
+                "area_ha": area_ha,
+                "sistema_actual": sistema_actual,
+                "descanso_actual_dias": descanso_actual,
+                "ocupacion_actual_dias": ocupacion_actual,
+                "tiene_agua": tiene_agua,
+                "tiene_divisiones": tiene_divisiones,
+                "condicion_suelo": condicion_suelo,
+                "objetivo_principal": objetivo,
+                "ecosistema": ecosistema if ecosistema else "no especificado",
+                "productividad_forraje": prod_forraje_est if prod_forraje_est > 0 else (st.session_state.resultados.get('analisis_forrajero', {}).get('productividad_prom_kg_ms_ha', 0) if st.session_state.resultados else 0),
+            }
+            plan = generar_plan_transicion_prv(params)
+
+        st.divider()
+        st.markdown("### 📋 Plan de Transición PRV")
+        st.markdown(plan)
+
+        st.divider()
+        st.markdown("""
+        <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.1);
+                    border-radius:10px;padding:0.75rem 1rem;font-size:0.85rem;">
+            💡 <strong>Sugerencia:</strong> Compartí este plan con tu asesor técnico y ajustalo
+            según las condiciones reales de tu campo. El PRV se construye observando y adaptando.
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Si el análisis ya se ejecutó, mostrar info complementaria
+    if st.session_state.resultados and 'prv' in st.session_state.resultados:
+        prv_data = st.session_state.resultados['prv']
+        with st.expander("📊 Datos PRV del análisis actual", expanded=False):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Potreros generados", prv_data.get('resumen', {}).get('num_potreros', 0))
+            with col2:
+                st.metric("Productividad media", f"{prv_data.get('resumen', {}).get('productividad_prom_kg_ms_ha', 0):,.0f} kg/ha")
+            with col3:
+                st.metric("EV/30d", prv_data.get('resumen', {}).get('ev_soportables_30d', 0))
+            st.caption("Estos valores pueden usarse como referencia para el plan de transición.")
+
+
 def mostrar_informe():
     st.header("📥 Informe Completo")
     if st.session_state.resultados is None or st.session_state.poligono_data is None:
@@ -3188,7 +3275,7 @@ def main():
             - 🌍 **Ecosistemas argentinos** — monte, espinal, yungas, chaqueño, patagonico, paranaense
             """)
     else:
-        tabs = st.tabs(["🗺️ Mapas", "📊 Dashboard", "🌳 Carbono", "🦋 Biodiversidad", "🐮 Forrajero", "🐄 PRV Voisin", "📈 Comparación", "📥 Informe"])
+        tabs = st.tabs(["🗺️ Mapas", "📊 Dashboard", "🌳 Carbono", "🦋 Biodiversidad", "🐮 Forrajero", "🐄 PRV Voisin", "📈 Comparación", "📥 Informe", "🤖 Asistente PRV"])
         with tabs[0]: mostrar_mapas_calor()
         with tabs[1]: mostrar_dashboard()
         with tabs[2]: mostrar_carbono()
@@ -3197,6 +3284,7 @@ def main():
         with tabs[5]: mostrar_prv()
         with tabs[6]: mostrar_comparacion()
         with tabs[7]: mostrar_informe()
+        with tabs[8]: mostrar_asistente_prv()
 
 if __name__ == "__main__":
     main()
