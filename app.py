@@ -719,8 +719,13 @@ class AnalisisForrajero:
 # 🗺️ SISTEMA DE MAPAS (interpolación KNN)
 # ===============================
 class SistemaMapas:
+    SATELLITE_TILE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+    SATELLITE_ATTR = 'Esri, Maxar, Earthstar Geographics'
+    OSM_TILE = 'OpenStreetMap'
+    OSM_ATTR = 'OpenStreetMap contributors'
+
     def __init__(self):
-        self.capa_base = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+        self.capa_base = self.SATELLITE_TILE
         self.estilos = {
             'area_estudio': {
                 'fillColor': '#3b82f6',
@@ -756,6 +761,37 @@ class SistemaMapas:
                 }
             }
         }
+
+    @staticmethod
+    def crear_mapa_con_base(gdf, zoom_extra=0):
+        """Crea un mapa Folium con base satelital + OSM, zoom automático y controles."""
+        bounds = gdf.total_bounds
+        centro = [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]
+        m = folium.Map(
+            location=centro, zoom_start=12,
+            tiles=SistemaMapas.SATELLITE_TILE,
+            attr=SistemaMapas.SATELLITE_ATTR,
+            control_scale=True,
+        )
+        folium.TileLayer(
+            SistemaMapas.OSM_TILE,
+            name='Mapa callejero',
+            attr=SistemaMapas.OSM_ATTR,
+        ).add_to(m)
+        folium.TileLayer(
+            SistemaMapas.SATELLITE_TILE,
+            name='Satelital',
+            attr=SistemaMapas.SATELLITE_ATTR,
+        ).add_to(m)
+        folium.LayerControl(collapsed=False).add_to(m)
+        margin = 0.005 * (1 + zoom_extra)
+        m.fit_bounds(
+            [[bounds[1] - margin, bounds[0] - margin],
+             [bounds[3] + margin, bounds[2] + margin]]
+        )
+        Fullscreen().add_to(m)
+        MousePosition().add_to(m)
+        return m
 
     def _generar_malla_puntos(self, gdf, densidad=1200):
         if gdf is None or gdf.empty:
@@ -884,31 +920,13 @@ class SistemaMapas:
                     punto_malla['evi'] = max(0, valor_interpolado)
         return puntos_malla
 
-    def crear_mapa_area(self, gdf, zoom_auto=True):
+    def crear_mapa_area(self, gdf):
         if gdf is None or gdf.empty:
             return None
         try:
-            bounds = gdf.total_bounds
-            centro = [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]
-            if zoom_auto:
-                width = bounds[2] - bounds[0]
-                height = bounds[3] - bounds[1]
-                extension = max(width, height)
-                if extension > 10: zoom_start = 6
-                elif extension > 5: zoom_start = 8
-                elif extension > 2: zoom_start = 10
-                elif extension > 1: zoom_start = 12
-                elif extension > 0.5: zoom_start = 14
-                elif extension > 0.2: zoom_start = 16
-                else: zoom_start = 18
-            else:
-                zoom_start = 12
-            m = folium.Map(location=centro, zoom_start=zoom_start, tiles=self.capa_base, attr='Esri, Maxar, Earthstar Geographics', control_scale=True)
+            m = self.crear_mapa_con_base(gdf)
             folium.GeoJson(gdf.geometry.iloc[0], style_function=lambda x: self.estilos['area_estudio'],
                            highlight_function=lambda x: {'weight': 6, 'color': '#1e40af', 'fillOpacity': 0.3}).add_to(m)
-            m.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
-            Fullscreen().add_to(m)
-            MousePosition().add_to(m)
             return m
         except Exception as e:
             st.warning(f"Error al crear mapa: {str(e)}")
@@ -927,7 +945,7 @@ class SistemaMapas:
             puntos_interpolados = self._interpolar_valores_knn(puntos_muestra, puntos_malla, variable)
             bounds = gdf_area.total_bounds
             centro = [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]
-            m = folium.Map(location=centro, zoom_start=12, tiles=self.capa_base, attr='Esri, Maxar, Earthstar Geographics', control_scale=True)
+            m = self.crear_mapa_con_base(gdf_area, zoom_extra=2)
             folium.GeoJson(gdf_area.geometry.iloc[0], style_function=lambda x: {
                 'fillColor': 'transparent', 'color': '#1d4ed8', 'weight': 2, 'fillOpacity': 0.05, 'dashArray': '5, 5'
             }).add_to(m)
@@ -953,7 +971,6 @@ class SistemaMapas:
             radius = 45 if variable in ['carbono', 'biodiversidad', 'forraje'] else 40
             blur = 40 if variable in ['carbono', 'biodiversidad', 'forraje'] else 35
             HeatMap(heat_data, name=variable, min_opacity=0.7, radius=radius, blur=blur, gradient=gradient, max_zoom=18).add_to(m)
-            m.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
             return m
         except Exception as e:
             st.warning(f"Error al crear mapa de calor para {variable}: {str(e)}")
@@ -969,8 +986,7 @@ class SistemaMapas:
         try:
             bounds = gdf_area.total_bounds
             centro = [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]
-            m = folium.Map(location=centro, zoom_start=12, tiles=self.capa_base,
-                           attr='Esri, Maxar, Earthstar Geographics', control_scale=True)
+            m = self.crear_mapa_con_base(gdf_area, zoom_extra=2)
             # Capa base: polígono transparente
             folium.GeoJson(gdf_area.geometry.iloc[0], style_function=lambda x: {
                 'fillColor': 'transparent', 'color': '#1d4ed8', 'weight': 2,
@@ -1025,7 +1041,6 @@ class SistemaMapas:
                 ).add_to(m)
 
             folium.LayerControl().add_to(m)
-            m.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
             return m
         except Exception as e:
             st.warning(f"Error al crear mapa combinado: {str(e)}")
@@ -2656,9 +2671,7 @@ def mostrar_analisis_forrajero():
         st.subheader("🗺️ Mapa de Productividad por Sublotes")
         sistema = SistemaMapas()
         try:
-            bounds = st.session_state.poligono_data.total_bounds
-            centro = [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]
-            m = folium.Map(location=centro, zoom_start=12, tiles='OpenStreetMap')
+            m = SistemaMapas.crear_mapa_con_base(st.session_state.poligono_data)
             min_prod = res['gdf_cuadricula']['productividad_kg_ms_ha'].min()
             max_prod = res['gdf_cuadricula']['productividad_kg_ms_ha'].max()
             colormap = LinearColormap(colors=['#8B4513', '#CD853F', '#F4A460', '#9ACD32', '#32CD32', '#006400'], vmin=min_prod, vmax=max_prod)
@@ -2821,9 +2834,7 @@ def mostrar_prv():
 
     with tab_map1:
         try:
-            bounds = st.session_state.poligono_data.total_bounds
-            centro = [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]
-            m = folium.Map(location=centro, zoom_start=12, tiles='OpenStreetMap')
+            m = SistemaMapas.crear_mapa_con_base(st.session_state.poligono_data)
 
             min_prod = gdf_potreros['productividad_kg_ms_ha'].min()
             max_prod = gdf_potreros['productividad_kg_ms_ha'].max()
@@ -2860,8 +2871,6 @@ def mostrar_prv():
             ).add_to(m)
 
             colormap.add_to(m)
-            folium.plugins.Fullscreen().add_to(m)
-            folium.plugins.MousePosition().add_to(m)
             folium_static(m, width=1000, height=550)
 
             st.info("⭐ Los potreros con borde dorado son los de **mayor productividad** (top 20%). Priorícelos en la rotación.")
@@ -2880,9 +2889,7 @@ def mostrar_prv():
                     'por_pastorear': '#F59E0B',
                     'sin_planificar': '#9CA3AF',
                 }
-                bounds2 = st.session_state.poligono_data.total_bounds
-                centro2 = [(bounds2[1] + bounds2[3]) / 2, (bounds2[0] + bounds2[2]) / 2]
-                m2 = folium.Map(location=centro2, zoom_start=12, tiles='OpenStreetMap')
+                m2 = SistemaMapas.crear_mapa_con_base(st.session_state.poligono_data)
 
                 for idx, row in gdf_potreros.iterrows():
                     estado = estados_map.get(row['potrero_id'], 'sin_planificar')
@@ -2909,9 +2916,6 @@ def mostrar_prv():
                 </div>
                 """
                 m2.get_root().html.add_child(folium.Element(leyenda_html))
-
-                folium.plugins.Fullscreen().add_to(m2)
-                folium.plugins.MousePosition().add_to(m2)
                 folium_static(m2, width=1000, height=550)
 
         except Exception as e:
@@ -3128,7 +3132,7 @@ def main():
                     area_ha = calcular_superficie(gdf)
                     st.markdown(f'<div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.15);border-radius:8px;padding:0.4rem 0.75rem;font-size:0.8rem;color:#93c5fd;">📍 {area_ha:,.1f} ha</div>', unsafe_allow_html=True)
                     sistema = SistemaMapas()
-                    st.session_state.mapa = sistema.crear_mapa_area(gdf, zoom_auto=True)
+                    st.session_state.mapa = sistema.crear_mapa_area(gdf)
 
         if st.session_state.poligono_data is not None:
             st.markdown('<hr style="border-color:rgba(255,255,255,0.05);margin:1rem 0;">', unsafe_allow_html=True)
