@@ -767,11 +767,13 @@ class SistemaMapas:
     def crear_mapa_con_base(gdf, zoom_extra=0):
         """Crea un mapa Folium con zoom automático al polígono."""
         bounds = gdf.total_bounds
+        if any(b != b for b in bounds):
+            raise ValueError("total_bounds contiene NaN")
         centro = [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]
         m = folium.Map(location=centro, zoom_start=12, tiles='OpenStreetMap', control_scale=True)
         ancho = max(bounds[2] - bounds[0], 0.001)
         alto = max(bounds[3] - bounds[1], 0.001)
-        margin = max(ancho, alto) * (0.08 * (1 + zoom_extra * 0.5))
+        margin = max(ancho, alto) * (0.04 * (1 + zoom_extra * 0.3))
         m.fit_bounds(
             [[bounds[1] - margin, bounds[0] - margin],
              [bounds[3] + margin, bounds[2] + margin]]
@@ -1290,18 +1292,18 @@ class Visualizaciones:
     def crear_metricas_kpi(carbono_total: float, co2_total: float, shannon: float, area: float,
                             ndvi: float = 0, ndwi: float = 0, forraje_kg: float = 0, ev: float = 0):
         def _card(icon, label, value, unit, gradient, badge=None):
-            badge_html = f'<span style="background:rgba(255,255,255,0.15);padding:2px 8px;border-radius:20px;font-size:0.65rem;margin-left:6px;">{badge}</span>' if badge else ''
+            badge_html = f'<span style="background:rgba(255,255,255,0.15);padding:2px 10px;border-radius:20px;font-size:0.7rem;margin-left:6px;">{badge}</span>' if badge else ''
             return (
-                '<div style="background:' + gradient + ';padding:1.25rem 1.5rem;border-radius:14px;'
-                'border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(8px);'
-                'box-shadow:0 4px 20px rgba(0,0,0,0.2);transition:all 0.25s ease;">'
-                '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">'
-                '<span style="font-size:1.1rem;">' + icon + '</span>'
+                '<div style="background:' + gradient + ';padding:1.5rem 1.75rem;border-radius:20px;'
+                'border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(8px);'
+                'box-shadow:0 8px 30px rgba(0,0,0,0.3);transition:all 0.25s ease;">'
+                '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">'
+                '<span style="font-size:1.3rem;">' + icon + '</span>'
                 '<span style="color:rgba(255,255,255,0.7);font-size:0.75rem;font-weight:500;text-transform:uppercase;letter-spacing:0.05em;">'
                 + label + badge_html + '</span></div>'
-                '<div style="font-size:1.9rem;font-weight:700;color:white;letter-spacing:-0.02em;line-height:1.1;">'
+                '<div style="font-size:2.5rem;font-weight:800;color:white;letter-spacing:-0.03em;line-height:1.1;">'
                 + value + '</div>'
-                '<div style="color:rgba(255,255,255,0.5);font-size:0.7rem;margin-top:0.15rem;">' + unit + '</div></div>'
+                '<div style="color:rgba(255,255,255,0.5);font-size:0.75rem;margin-top:0.25rem;">' + unit + '</div></div>'
             )
 
         cards = []
@@ -2860,7 +2862,7 @@ def mostrar_analisis_forrajero():
         st.subheader("🗺️ Mapa de Productividad por Sublotes")
         sistema = SistemaMapas()
         try:
-            m = SistemaMapas.crear_mapa_con_base(st.session_state.poligono_data)
+            m = SistemaMapas.crear_mapa_con_base(res['gdf_cuadricula'])
             min_prod = res['gdf_cuadricula']['productividad_kg_ms_ha'].min()
             max_prod = res['gdf_cuadricula']['productividad_kg_ms_ha'].max()
             colormap = LinearColormap(colors=['#8B4513', '#CD853F', '#F4A460', '#9ACD32', '#32CD32', '#006400'], vmin=min_prod, vmax=max_prod)
@@ -3023,7 +3025,7 @@ def mostrar_prv():
 
     with tab_map1:
         try:
-            m = SistemaMapas.crear_mapa_con_base(st.session_state.poligono_data)
+            m = SistemaMapas.crear_mapa_con_base(gdf_potreros)
 
             min_prod = gdf_potreros['productividad_kg_ms_ha'].min()
             max_prod = gdf_potreros['productividad_kg_ms_ha'].max()
@@ -3078,7 +3080,7 @@ def mostrar_prv():
                     'por_pastorear': '#F59E0B',
                     'sin_planificar': '#9CA3AF',
                 }
-                m2 = SistemaMapas.crear_mapa_con_base(st.session_state.poligono_data)
+                m2 = SistemaMapas.crear_mapa_con_base(gdf_potreros)
 
                 for idx, row in gdf_potreros.iterrows():
                     estado = estados_map.get(row['potrero_id'], 'sin_planificar')
