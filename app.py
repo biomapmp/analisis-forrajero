@@ -3458,6 +3458,8 @@ def main():
     # Inicializar modelo seleccionado por defecto
     if 'selected_model' not in st.session_state:
         st.session_state.selected_model = available_models[0] if available_models else "llama3-70b-8192"
+    if 'analisis_usados' not in st.session_state:
+        st.session_state.analisis_usados = 0
 
     st.markdown(
         '<div style="display:flex;align-items:center;gap:1rem;margin:0 0 0.25rem 0;">'
@@ -3493,6 +3495,15 @@ def main():
                     sistema = SistemaMapas()
                     st.session_state.mapa = sistema.crear_mapa_area(gdf)
 
+        restantes = max(0, 2 - st.session_state.analisis_usados)
+        st.markdown(
+            f'<div style="display:flex;align-items:center;gap:0.5rem;margin:0.75rem 0;'
+            f'background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);'
+            f'border-radius:8px;padding:0.4rem 0.75rem;font-size:0.75rem;color:#fbbf24;">'
+            f'🎯 Demo — {restantes}/2 análisis gratuitos'
+            f'</div>', unsafe_allow_html=True
+        )
+
         if st.session_state.poligono_data is not None:
             st.markdown('<hr style="border-color:rgba(255,255,255,0.05);margin:1rem 0;">', unsafe_allow_html=True)
             st.markdown('<p style="color:#64748b;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">⚙️ Configuración</p>', unsafe_allow_html=True)
@@ -3516,12 +3527,32 @@ def main():
                 )
             
             st.markdown('<br>', unsafe_allow_html=True)
-            if st.button("🚀 Ejecutar Análisis Completo", type="primary", use_container_width=True):
-                with st.spinner("Analizando..."):
-                    resultados = ejecutar_analisis_completo(st.session_state.poligono_data, tipo_ecosistema, num_puntos, usar_gee)
-                    if resultados:
-                        st.session_state.resultados = resultados
-                        st.markdown('<div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:0.5rem 0.75rem;font-size:0.85rem;color:#6ee7b7;text-align:center;">✅ Análisis completado</div>', unsafe_allow_html=True)
+            if st.session_state.analisis_usados >= 2:
+                st.markdown(
+                    '<div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);'
+                    'border-radius:12px;padding:1.25rem;text-align:center;">'
+                    '<div style="font-size:1.1rem;font-weight:600;color:#fbbf24;margin-bottom:0.5rem;">🎯 Demo completado</div>'
+                    '<div style="font-size:0.85rem;color:#94a3b8;margin-bottom:1rem;">'
+                    'Ya usaste los 2 análisis gratuitos. <strong>Contactame</strong> para un análisis personalizado '
+                    'con entrega de informe completo.</div>'
+                    '<a href="https://wa.me/549XXXXXXXXX" target="_blank" '
+                    'style="display:inline-block;background:#25D366;color:white;padding:0.6rem 1.5rem;'
+                    'border-radius:8px;text-decoration:none;font-size:0.9rem;font-weight:600;margin-bottom:0.5rem;">'
+                    '📱 Consultar por WhatsApp</a><br>'
+                    '<a href="https://cafecito.app/tuusuario" target="_blank" '
+                    'style="display:inline-block;background:#ff7e36;color:white;padding:0.5rem 1.2rem;'
+                    'border-radius:8px;text-decoration:none;font-size:0.85rem;font-weight:600;margin-top:0.3rem;">'
+                    '☕ Pagar análisis completo (Cafecito)</a>'
+                    '</div>', unsafe_allow_html=True
+                )
+            else:
+                if st.button("🚀 Ejecutar Análisis Completo", type="primary", use_container_width=True):
+                    with st.spinner("Analizando..."):
+                        resultados = ejecutar_analisis_completo(st.session_state.poligono_data, tipo_ecosistema, num_puntos, usar_gee)
+                        if resultados:
+                            st.session_state.resultados = resultados
+                            st.session_state.analisis_usados += 1
+                            st.markdown('<div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:0.5rem 0.75rem;font-size:0.85rem;color:#6ee7b7;text-align:center;">✅ Análisis completado</div>', unsafe_allow_html=True)
 
     if st.session_state.poligono_data is None:
         st.markdown(
