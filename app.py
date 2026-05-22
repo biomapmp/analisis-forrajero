@@ -233,7 +233,7 @@ warnings.filterwarnings('ignore')
 # ===== LIBRERÍAS GEOESPACIALES =====
 import folium
 from streamlit_folium import st_folium, folium_static
-from folium.plugins import Fullscreen, MousePosition, HeatMap
+from folium.plugins import Fullscreen, MousePosition
 import geopandas as gpd
 from shapely.geometry import Polygon, Point, shape, MultiPolygon
 from shapely.ops import unary_union
@@ -803,11 +803,34 @@ class SistemaMapas:
                     lat = miny + (j + 0.5) * dy
                     punto = Point(lon, lat)
                     if poligono.contains(punto):
-                        puntos.append({'lat': lat, 'lon': lon, 'x_norm': i / lado, 'y_norm': j / lado})
+                        puntos.append({'lat': lat, 'lon': lon, 'x_norm': i / lado, 'y_norm': j / lado,
+                                       'dx': dx, 'dy': dy})
             return puntos
         except Exception as e:
             print(f"Error generando malla: {str(e)}")
             return []
+
+    def _malla_a_geodataframe(self, puntos_malla, valor_key='carbono_ton_ha'):
+        """Convierte la malla de puntos en un GeoDataFrame de celdas cuadradas."""
+        import geopandas as gpd
+        registros = []
+        for p in puntos_malla:
+            if valor_key not in p or p[valor_key] is None:
+                continue
+            dx, dy = p.get('dx', 0.001), p.get('dy', 0.001)
+            lon, lat = p['lon'], p['lat']
+            celda = Polygon([
+                (lon - dx/2, lat - dy/2),
+                (lon + dx/2, lat - dy/2),
+                (lon + dx/2, lat + dy/2),
+                (lon - dx/2, lat + dy/2),
+            ])
+            registros.append({'geometry': celda, 'valor': p[valor_key], 'lat': lat, 'lon': lon})
+        if not registros:
+            return None
+        gdf = gpd.GeoDataFrame(registros, crs='EPSG:4326')
+        gdf = gdf[gdf.geometry.is_valid]
+        return gdf
 
     def _interpolar_valores_knn(self, puntos_muestra, puntos_malla, variable='carbono', k=8):
         if not puntos_muestra or not puntos_malla:
@@ -934,8 +957,32 @@ class SistemaMapas:
             if not puntos_malla:
                 return None
             puntos_interpolados = self._interpolar_valores_knn(puntos_muestra, puntos_malla, variable)
+
+            key_map = {'carbono': 'carbono_ton_ha', 'ndvi': 'ndvi', 'ndwi': 'ndwi',
+                       'biodiversidad': 'indice_shannon', 'forraje': 'productividad_kg_ms_ha',
+                       'ndre': 'ndre', 'msavi': 'msavi', 'evi': 'evi'}
+            valor_key = key_map.get(variable)
+            if not valor_key:
+                return None
+
+            gdf_celdas = self._malla_a_geodataframe(puntos_interpolados, valor_key)
+            if gdf_celdas is None or gdf_celdas.empty:
+                return None
+
+            vmin, vmax = gdf_celdas['valor'].min(), gdf_celdas['valor'].max()
+            if vmin == vmax:
+                vmax = vmin + 1e-6
+            colormap = LinearColormap(
+                colors=list(self.estilos['gradientes'].get(variable, self.estilos['gradientes']['carbono']).values()),
+                vmin=vmin, vmax=vmax
+            )
+            unidades = {'carbono': 'ton C/ha', 'ndvi': 'NDVI', 'ndwi': 'NDWI',
+                        'biodiversidad': 'Índice Shannon', 'forraje': 'kg MS/ha',
+                        'ndre': 'NDRE', 'msavi': 'MSAVI', 'evi': 'EVI'}
+            colormap.caption = f'{variable.title()} ({unidades.get(variable, "")})'
+
             m = self.crear_mapa_con_base(gdf_area, zoom_extra=2)
-            # Polígono del área: borde visible
+            # Polígono del área
             folium.GeoJson(
                 gdf_area.geometry.iloc[0],
                 style_function=lambda x: {
@@ -943,54 +990,37 @@ class SistemaMapas:
                     'fillOpacity': 0, 'dashArray': '8, 6'
                 }
             ).add_to(m)
-            # Preparar datos para el HeatMap
-            values = []
-            heat_data = []
-            for punto in puntos_interpolados:
-                if variable == 'carbono':
-                    val = punto['carbono_ton_ha']
-                elif variable == 'ndvi':
-                    val = punto['ndvi']
-                elif variable == 'ndwi':
-                    val = punto['ndwi']
-                elif variable == 'biodiversidad':
-                    val = punto['indice_shannon']
-                elif variable == 'forraje':
-                    val = punto['productividad_kg_ms_ha']
-                elif variable == 'ndre':
-                    val = punto['ndre']
-                elif variable == 'msavi':
-                    val = punto['msavi']
-                elif variable == 'evi':
-                    val = punto['evi']
-                else:
-                    continue
-                heat_data.append([punto['lat'], punto['lon'], val])
-                values.append(val)
-            gradient = self.estilos['gradientes'].get(variable, self.estilos['gradientes']['carbono'])
-            # HeatMap con parámetros más nítidos (menos blur, menos radio)
-            HeatMap(
-                heat_data, name=variable, min_opacity=0.5, radius=14,
-                blur=8, gradient=gradient, max_zoom=18
+            # Celdas de la malla coloreadas por valor
+            folium.GeoJson(
+                gdf_celdas.to_json(),
+                style_function=lambda feature: {
+                    'fillColor': colormap(feature['properties']['valor']),
+                    'color': 'rgba(0,0,0,0.15)',
+                    'weight': 0.3,
+                    'fillOpacity': 0.85
+                },
+                tooltip=folium.GeoJsonTooltip(
+                    fields=['valor'],
+                    aliases=[f'{unidades.get(variable, "Valor")}:'],
+                    localize=True,
+                    style='font-size:12px;'
+                ),
+                highlight_function=lambda x: {'weight': 1, 'color': '#fff', 'fillOpacity': 0.95}
             ).add_to(m)
-            # Puntos de muestreo reales como marcadores
+            # Puntos de muestreo
             for p in puntos_muestra:
                 folium.CircleMarker(
                     [p['lat'], p['lon']],
-                    radius=5, color='white', weight=2,
-                    fill=True, fill_color='#333', fill_opacity=0.6,
-                    tooltip=f"Muestra: {p.get('nombre', '')}"
+                    radius=4, color='#fff', weight=2,
+                    fill=True, fill_color='#1e293b', fill_opacity=0.7,
+                    tooltip=f"Muestra {p.get('nombre', '')}"
                 ).add_to(m)
-            # Leyenda de gradiente
-            vmin, vmax = min(values), max(values)
-            unidades = {'carbono': 'ton C/ha', 'ndvi': 'NDVI', 'ndwi': 'NDWI',
-                        'biodiversidad': 'Índice Shannon', 'forraje': 'kg MS/ha',
-                        'ndre': 'NDRE', 'msavi': 'MSAVI', 'evi': 'EVI'}
-            unit = unidades.get(variable, '')
-            self._agregar_leyenda_gradiente(m, gradient, vmin, vmax, unit)
+            colormap.add_to(m)
             return m
         except Exception as e:
             st.warning(f"Error al crear mapa de calor para {variable}: {str(e)}")
+            import traceback
+            st.warning(traceback.format_exc())
             return None
 
     def _agregar_leyenda_gradiente(self, m, gradient, vmin, vmax, unit=''):
@@ -1024,65 +1054,66 @@ class SistemaMapas:
 
     def crear_mapa_combinado_interpolado(self, resultados, gdf_area=None):
         """
-        Crea un mapa con múltiples capas de calor continuas (carbono, ndvi, ndwi, biodiversidad, forraje)
+        Crea un mapa con múltiples capas coropléticas (carbono, ndvi, ndwi, biodiversidad, forraje)
         y control de capas para activar/desactivar cada una.
         """
         if not resultados or gdf_area is None or gdf_area.empty:
             return None
         try:
             m = self.crear_mapa_con_base(gdf_area, zoom_extra=2)
-            # Capa base: polígono con borde visible
             folium.GeoJson(gdf_area.geometry.iloc[0], style_function=lambda x: {
                 'fillColor': 'transparent', 'color': '#ffffff', 'weight': 3,
                 'fillOpacity': 0, 'dashArray': '8, 6'
             }).add_to(m)
 
-            # Variables a incluir y su configuración (parámetros más nítidos)
             variables = [
-                ('carbono', '🌳 Carbono', 14, 8, False),
-                ('ndvi', '📈 NDVI', 12, 6, False),
-                ('ndwi', '💧 NDWI', 12, 6, False),
-                ('biodiversidad', '🦋 Biodiversidad', 14, 8, False),
-                ('forraje', '🌿 Forraje', 14, 8, True)  # forraje visible por defecto
+                ('carbono', '🌳 Carbono', 'carbono_ton_ha'),
+                ('ndvi', '📈 NDVI', 'ndvi'),
+                ('ndwi', '💧 NDWI', 'ndwi'),
+                ('biodiversidad', '🦋 Biodiversidad', 'indice_shannon'),
+                ('forraje', '🌿 Forraje', 'productividad_kg_ms_ha'),
             ]
+            unidades = {'carbono': 'ton C/ha', 'ndvi': 'NDVI', 'ndwi': 'NDWI',
+                        'biodiversidad': 'Índice Shannon', 'forraje': 'kg MS/ha'}
 
-            # Generar malla única para todos
-            puntos_malla = self._generar_malla_puntos(gdf_area, densidad=1000)
-            if not puntos_malla:
-                return None
-
-            for var, nombre, radius, blur, default_show in variables:
+            for var, nombre, vkey in variables:
                 puntos_muestra = resultados.get(f'puntos_{var}', [])
                 if not puntos_muestra:
                     continue
-                puntos_interpolados = self._interpolar_valores_knn(puntos_muestra, puntos_malla.copy(), var)
-                heat_data = []
-                for p in puntos_interpolados:
-                    if var == 'carbono':
-                        val = p.get('carbono_ton_ha', 0)
-                    elif var == 'ndvi':
-                        val = p.get('ndvi', 0)
-                    elif var == 'ndwi':
-                        val = p.get('ndwi', 0)
-                    elif var == 'biodiversidad':
-                        val = p.get('indice_shannon', 0)
-                    elif var == 'forraje':
-                        val = p.get('productividad_kg_ms_ha', 0)
-                    else:
-                        continue
-                    heat_data.append([p['lat'], p['lon'], val])
+                puntos_malla = self._generar_malla_puntos(gdf_area, densidad=800)
+                if not puntos_malla:
+                    continue
+                puntos_interp = self._interpolar_valores_knn(puntos_muestra, puntos_malla, var)
+                gdf_celdas = self._malla_a_geodataframe(puntos_interp, vkey)
+                if gdf_celdas is None or gdf_celdas.empty:
+                    continue
 
-                gradient = self.estilos['gradientes'].get(var, self.estilos['gradientes']['carbono'])
-                HeatMap(
-                    heat_data,
-                    name=nombre,
-                    min_opacity=0.5,
-                    radius=radius,
-                    blur=blur,
-                    gradient=gradient,
-                    max_zoom=18,
-                    show=default_show
-                ).add_to(m)
+                vmin, vmax = gdf_celdas['valor'].min(), gdf_celdas['valor'].max()
+                if vmin == vmax:
+                    vmax = vmin + 1e-6
+                colormap = LinearColormap(
+                    colors=list(self.estilos['gradientes'].get(var, self.estilos['gradientes']['carbono']).values()),
+                    vmin=vmin, vmax=vmax
+                )
+
+                layer = folium.FeatureGroup(name=nombre, show=(var == 'forraje'))
+                folium.GeoJson(
+                    gdf_celdas.to_json(),
+                    style_function=lambda feature, cm=colormap: {
+                        'fillColor': cm(feature['properties']['valor']),
+                        'color': 'rgba(0,0,0,0.1)',
+                        'weight': 0.2,
+                        'fillOpacity': 0.8
+                    },
+                    tooltip=folium.GeoJsonTooltip(
+                        fields=['valor'],
+                        aliases=[f'{unidades.get(var, "Valor")}:'],
+                        localize=True,
+                        style='font-size:11px;'
+                    ),
+                    highlight_function=lambda x: {'weight': 0.8, 'color': '#fff', 'fillOpacity': 0.95}
+                ).add_to(layer)
+                layer.add_to(m)
 
             folium.LayerControl().add_to(m)
             return m
