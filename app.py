@@ -3539,7 +3539,7 @@ def main():
                     'style="display:inline-block;background:#25D366;color:white;padding:0.6rem 1.5rem;'
                     'border-radius:8px;text-decoration:none;font-size:0.9rem;font-weight:600;margin-bottom:0.5rem;">'
                     '📱 Consultar por WhatsApp</a><br>'
-                    '<a href="https://mpago.la/tu_enlace_mercadopago" target="_blank" '
+                    '<a href="https://mpago.la/1AahHK6" target="_blank" '
                     'style="display:inline-block;background:#009ee3;color:white;padding:0.5rem 1.2rem;'
                     'border-radius:8px;text-decoration:none;font-size:0.85rem;font-weight:600;margin-top:0.3rem;">'
                     '💳 Pagar análisis completo (Mercado Pago)</a>'
