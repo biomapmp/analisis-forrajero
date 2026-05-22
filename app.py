@@ -3535,14 +3535,14 @@ def main():
                     '<div style="font-size:0.85rem;color:#94a3b8;margin-bottom:1rem;">'
                     'Ya usaste los 2 análisis gratuitos. <strong>Contactame</strong> para un análisis personalizado '
                     'con entrega de informe completo.</div>'
-                    '<a href="https://wa.me/549XXXXXXXXX" target="_blank" '
+                    '<a href="https://wa.me/5493525532313" target="_blank" '
                     'style="display:inline-block;background:#25D366;color:white;padding:0.6rem 1.5rem;'
                     'border-radius:8px;text-decoration:none;font-size:0.9rem;font-weight:600;margin-bottom:0.5rem;">'
                     '📱 Consultar por WhatsApp</a><br>'
-                    '<a href="https://cafecito.app/tuusuario" target="_blank" '
-                    'style="display:inline-block;background:#ff7e36;color:white;padding:0.5rem 1.2rem;'
+                    '<a href="https://mpago.la/tu_enlace_mercadopago" target="_blank" '
+                    'style="display:inline-block;background:#009ee3;color:white;padding:0.5rem 1.2rem;'
                     'border-radius:8px;text-decoration:none;font-size:0.85rem;font-weight:600;margin-top:0.3rem;">'
-                    '☕ Pagar análisis completo (Cafecito)</a>'
+                    '💳 Pagar análisis completo (Mercado Pago)</a>'
                     '</div>', unsafe_allow_html=True
                 )
             else:
