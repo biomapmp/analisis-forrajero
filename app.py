@@ -3441,6 +3441,40 @@ def mostrar_informe():
                 st.download_button("⬇️ Descargar GeoJSON", geojson, f"area_{datetime.now().strftime('%Y%m%d_%H%M')}.geojson", "application/geo+json")
 
 # ===============================
+# CONTROL DE USO DEMO (por IP)
+# ===============================
+import hashlib, json
+from pathlib import Path
+
+_LIMITE_DEMO = 2
+_ARCHIVO_USO = Path("/tmp/.uso_analisis.json")
+
+def _cliente_id():
+    try:
+        ip = st.context.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        if ip:
+            return hashlib.sha256(ip.encode()).hexdigest()[:16]
+    except Exception:
+        pass
+    return "anon"
+
+def _uso_restante():
+    cid = _cliente_id()
+    if not _ARCHIVO_USO.exists():
+        return _LIMITE_DEMO
+    data = json.loads(_ARCHIVO_USO.read_text())
+    usado = data.get(cid, 0)
+    return max(0, _LIMITE_DEMO - usado)
+
+def _incrementar_uso():
+    cid = _cliente_id()
+    data = {}
+    if _ARCHIVO_USO.exists():
+        data = json.loads(_ARCHIVO_USO.read_text())
+    data[cid] = data.get(cid, 0) + 1
+    _ARCHIVO_USO.write_text(json.dumps(data, indent=2))
+
+# ===============================
 # MAIN
 # ===============================
 def main():
@@ -3458,8 +3492,8 @@ def main():
     # Inicializar modelo seleccionado por defecto
     if 'selected_model' not in st.session_state:
         st.session_state.selected_model = available_models[0] if available_models else "llama3-70b-8192"
-    if 'analisis_usados' not in st.session_state:
-        st.session_state.analisis_usados = 0
+    if 'selected_model' not in st.session_state:
+        st.session_state.selected_model = available_models[0] if available_models else "llama3-70b-8192"
 
     st.markdown(
         '<div style="display:flex;align-items:center;gap:1rem;margin:0 0 0.25rem 0;">'
@@ -3495,7 +3529,7 @@ def main():
                     sistema = SistemaMapas()
                     st.session_state.mapa = sistema.crear_mapa_area(gdf)
 
-        restantes = max(0, 2 - st.session_state.analisis_usados)
+        restantes = _uso_restante()
         st.markdown(
             f'<div style="display:flex;align-items:center;gap:0.5rem;margin:0.75rem 0;'
             f'background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);'
@@ -3527,7 +3561,7 @@ def main():
                 )
             
             st.markdown('<br>', unsafe_allow_html=True)
-            if st.session_state.analisis_usados >= 2:
+            if _uso_restante() <= 0:
                 st.markdown(
                     '<div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);'
                     'border-radius:12px;padding:1.25rem;text-align:center;">'
@@ -3551,7 +3585,7 @@ def main():
                         resultados = ejecutar_analisis_completo(st.session_state.poligono_data, tipo_ecosistema, num_puntos, usar_gee)
                         if resultados:
                             st.session_state.resultados = resultados
-                            st.session_state.analisis_usados += 1
+                            _incrementar_uso()
                             st.markdown('<div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:0.5rem 0.75rem;font-size:0.85rem;color:#6ee7b7;text-align:center;">✅ Análisis completado</div>', unsafe_allow_html=True)
 
     if st.session_state.poligono_data is None:
