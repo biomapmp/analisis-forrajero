@@ -2082,6 +2082,273 @@ def generar_reporte_ia(resultados, gdf, sistema_mapas=None):
         docx_output.seek(0)
         return docx_output
 
+
+def generar_informe_infografia(resultados, gdf, sistema_mapas=None):
+    """Genera un informe HTML tipo infografía didáctica con todos los mapas, gráficos y análisis IA."""
+    import base64, io
+    from datetime import datetime
+    from io import BytesIO
+
+    df, stats = preparar_resumen(resultados)
+    vis = Visualizaciones()
+
+    def _fig_b64(fig, w=800, h=500):
+        try:
+            return base64.b64encode(fig.to_image(format='png', width=w, height=h, scale=2)).decode()
+        except:
+            return ''
+
+    def _mapa_b64(var):
+        if not sistema_mapas:
+            return ''
+        try:
+            m = sistema_mapas.crear_mapa_estatico(resultados, var, gdf)
+            if m:
+                return base64.b64encode(m.getvalue()).decode()
+        except:
+            return ''
+        return ''
+
+    # Generar imágenes
+    fig_carbono = vis.crear_grafico_barras_carbono(resultados.get('desglose_promedio', {}))
+    img_carbono = _fig_b64(fig_carbono, 800, 500) if fig_carbono else ''
+
+    biodiv_data = resultados.get('puntos_biodiversidad', [{}])[0] if resultados.get('puntos_biodiversidad') else {}
+    fig_biodiv = vis.crear_grafico_radar_biodiversidad(biodiv_data)
+    img_biodiv = _fig_b64(fig_biodiv, 700, 700) if fig_biodiv else ''
+
+    fig_comp = None
+    if all(f'puntos_{k}' in resultados for k in ['carbono', 'ndvi', 'ndwi', 'biodiversidad']):
+        fig_comp = vis.crear_grafico_comparativo(
+            resultados['puntos_carbono'], resultados['puntos_ndvi'],
+            resultados['puntos_ndwi'], resultados['puntos_biodiversidad'])
+    img_comp = _fig_b64(fig_comp, 900, 800) if fig_comp else ''
+
+    fig_forr = None
+    if 'analisis_forrajero' in resultados:
+        fa = resultados['analisis_forrajero']
+        fig_forr = vis.crear_grafico_forrajero(fa['disponibilidad_forrajera'], fa['equivalentes_vaca'])
+    img_forr = _fig_b64(fig_forr, 1000, 700) if fig_forr else ''
+
+    # Mapas estáticos
+    mapas = {}
+    for var in ['carbono', 'ndvi', 'ndwi', 'biodiversidad', 'forraje']:
+        mapas[var] = _mapa_b64(var)
+
+    # Análisis IA
+    analisis = {}
+    from modules.ia_integration import (
+        generar_analisis_carbono, generar_analisis_biodiversidad,
+        generar_analisis_espectral, generar_analisis_forrajero, generar_recomendaciones_integradas
+    )
+    for fn, key in [
+        (generar_analisis_carbono, 'carbono'),
+        (generar_analisis_biodiversidad, 'biodiversidad'),
+        (generar_analisis_espectral, 'espectral'),
+        (generar_analisis_forrajero, 'forrajero')
+    ]:
+        try:
+            analisis[key] = fn(df, stats)
+        except:
+            analisis[key] = ''
+    try:
+        analisis['recomendaciones'] = generar_recomendaciones_integradas(df, stats)
+    except:
+        analisis['recomendaciones'] = ''
+
+    # Métricas
+    area = stats.get('area_total_ha', 0)
+    carbono = stats.get('carbono_total_ton', 0)
+    co2 = stats.get('co2_total_ton', 0)
+    shannon = stats.get('shannon_promedio', 0)
+    ndvi = stats.get('ndvi_promedio', 0)
+    ndwi = stats.get('ndwi_promedio', 0)
+    forraje_kg = stats.get('forraje_kg_ms_ha', 0)
+    puntos = stats.get('num_puntos', 0)
+    ecosistema = stats.get('tipo_ecosistema', 'N/A')
+
+    # Fecha
+    fecha = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+    # PRV data
+    prv_potreros = 0
+    prv_prod = 0
+    prv_ev = 0
+    if 'prv' in resultados:
+        prv = resultados['prv']
+        prv_potreros = prv.get('resumen', {}).get('num_potreros', 0)
+        prv_prod = prv.get('resumen', {}).get('productividad_prom_kg_ms_ha', 0)
+        prv_ev = prv.get('resumen', {}).get('ev_soportables_30d', 0)
+
+    # Scores cualitativos
+    def _score(val, rangos):
+        for label, (lo, hi) in rangos.items():
+            if lo <= val <= hi:
+                return label
+        return 'regular'
+
+    score_carbono = _score(shannon, {'bajo': (0, 1.5), 'medio': (1.5, 2.5), 'alto': (2.5, 10)})
+    score_ndvi = _score(ndvi, {'bajo': (-1, 0.3), 'medio': (0.3, 0.6), 'alto': (0.6, 1)})
+    score_forrajero = _score(forraje_kg, {'bajo': (0, 2000), 'medio': (2000, 5000), 'alto': (5000, 99999)})
+
+    def _color_score(s):
+        return {'bajo': '#ef4444', 'medio': '#f59e0b', 'alto': '#10b981', 'regular': '#64748b'}.get(s, '#64748b')
+
+    # Iconos por score
+    def _icon_score(s):
+        return {'bajo': '🔴', 'medio': '🟡', 'alto': '🟢', 'regular': '⚪'}.get(s, '⚪')
+
+    # Construir HTML
+    html = f'''<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Informe Ambiental — Infografía</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#1e293b;line-height:1.5}}
+.header{{background:linear-gradient(135deg,#0f172a,#1e293b);color:white;padding:3rem 1.5rem;text-align:center}}
+.header h1{{font-size:1.8rem;font-weight:800;margin-bottom:0.3rem}}
+.header .sub{{color:#94a3b8;font-size:0.9rem}}
+.header .fecha{{color:#64748b;font-size:0.8rem;margin-top:0.5rem}}
+.container{{max-width:1100px;margin:0 auto;padding:1.5rem}}
+.kpi-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.75rem;margin-bottom:2rem}}
+.kpi{{background:white;border:1px solid #e2e8f0;border-radius:12px;padding:1rem;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.04)}}
+.kpi .val{{font-size:1.5rem;font-weight:700;color:#0f172a}}
+.kpi .lab{{font-size:0.7rem;color:#64748b;text-transform:uppercase;letter-spacing:0.03em}}
+.kpi .sc{{font-size:0.65rem;margin-top:0.2rem;padding:2px 8px;border-radius:10px;display:inline-block;color:white}}
+.section{{background:white;border:1px solid #e2e8f0;border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;box-shadow:0 1px 4px rgba(0,0,0,0.04)}}
+.section h2{{font-size:1.2rem;font-weight:700;margin-bottom:0.75rem;color:#0f172a;display:flex;align-items:center;gap:0.5rem}}
+.section h2 .badge{{font-size:0.65rem;font-weight:600;padding:2px 10px;border-radius:12px;color:white}}
+.section .analisis{{font-size:0.85rem;color:#475569;line-height:1.7;margin-top:0.75rem;white-space:pre-wrap}}
+.section .analisis p{{margin-bottom:0.5rem}}
+.img-wrap{{text-align:center;margin:0.75rem 0;background:#f1f5f9;border-radius:10px;padding:0.5rem;overflow:hidden}}
+.img-wrap img{{max-width:100%;height:auto;display:block;margin:0 auto;border-radius:8px}}
+.map-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem}}
+.map-card{{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}}
+.map-card .mtit{{font-size:0.75rem;font-weight:600;padding:0.4rem 0.75rem;background:#f1f5f9;color:#475569;display:flex;align-items:center;gap:0.4rem}}
+.map-card img{{width:100%;height:auto;display:block}}
+.info-table{{width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.5rem}}
+.info-table th,.info-table td{{padding:0.35rem 0.5rem;text-align:left;border-bottom:1px solid #f1f5f9}}
+.info-table th{{color:#64748b;font-weight:500;width:40%}}
+.footer{{text-align:center;padding:2rem;color:#94a3b8;font-size:0.8rem;border-top:1px solid #e2e8f0;margin-top:1rem}}
+@media print{{.header{{-webkit-print-color-adjust:exact;print-color-adjust:exact}} .section{{break-inside:avoid}}}}
+@media(max-width:600px){{.kpi-grid{{grid-template-columns:repeat(2,1fr)}} .map-grid{{grid-template-columns:1fr}}}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🌎 Informe Ambiental Integral</h1>
+  <div class="sub">Carbono · Biodiversidad · Índices Espectrales · Forrajero · PRV</div>
+  <div class="fecha">Generado: {fecha} · {puntos} puntos de muestreo · Ecosistema: {ecosistema}</div>
+</div>
+<div class="container">
+
+<div class="kpi-grid">
+  <div class="kpi"><div class="val">{area:,.1f}</div><div class="lab">ha · Área total</div></div>
+  <div class="kpi"><div class="val">{carbono:,.0f}</div><div class="lab">ton C · Carbono total</div></div>
+  <div class="kpi"><div class="val">{co2:,.0f}</div><div class="lab">ton CO₂e · Potencial créditos</div></div>
+  <div class="kpi"><div class="val">{shannon:.2f}</div><div class="lab">Índice Shannon</div><div class="sc" style="background:{_color_score(score_carbono)}">{_icon_score(score_carbono)} {score_carbono}</div></div>
+  <div class="kpi"><div class="val">{ndvi:.3f}</div><div class="lab">NDVI promedio</div><div class="sc" style="background:{_color_score(score_ndvi)}">{_icon_score(score_ndvi)} {score_ndvi}</div></div>
+  <div class="kpi"><div class="val">{ndwi:.3f}</div><div class="lab">NDWI promedio</div></div>
+  <div class="kpi"><div class="val">{forraje_kg:,.0f}</div><div class="lab">kg MS/ha · Forraje</div><div class="sc" style="background:{_color_score(score_forrajero)}">{_icon_score(score_forrajero)} {score_forrajero}</div></div>
+  <div class="kpi"><div class="val">{prv_potreros}</div><div class="lab">Potreros PRV generados</div></div>
+</div>'''
+
+    # Sección 1: Carbono
+    html += f'''
+<div class="section">
+  <h2>🌳 Carbono <span class="badge" style="background:{_color_score(score_carbono)}">{_icon_score(score_carbono)} {score_carbono}</span></h2>
+  <table class="info-table">
+    <tr><th>Carbono total almacenado</th><td>{carbono:,.0f} ton C</td></tr>
+    <tr><th>CO₂ equivalente</th><td>{co2:,.0f} ton CO₂e</td></tr>
+    <tr><th>Potencial créditos de carbono</th><td>{_icon_score(score_carbono)} {score_carbono.upper()}</td></tr>
+  </table>
+  {"<div class='img-wrap'><img src='data:image/png;base64," + img_carbono + "'/></div>" if img_carbono else ""}
+  <div class="analisis">{analisis.get('carbono', '')}</div>
+</div>'''
+
+    # Sección 2: Biodiversidad
+    html += f'''
+<div class="section">
+  <h2>🦋 Biodiversidad <span class="badge" style="background:{_color_score(score_carbono)}">{_icon_score(score_carbono)} {score_carbono}</span></h2>
+  <table class="info-table">
+    <tr><th>Índice de Shannon</th><td>{shannon:.3f}</td></tr>
+    <tr><th>Ecosistema</th><td>{ecosistema}</td></tr>
+  </table>
+  {"<div class='img-wrap'><img src='data:image/png;base64," + img_biodiv + "'/></div>" if img_biodiv else ""}
+  <div class="analisis">{analisis.get('biodiversidad', '')}</div>
+</div>'''
+
+    # Sección 3: Índices espectrales
+    html += f'''
+<div class="section">
+  <h2>📈 Índices Espectrales <span class="badge" style="background:{_color_score(score_ndvi)}">{_icon_score(score_ndvi)} {score_ndvi}</span></h2>
+  <table class="info-table">
+    <tr><th>NDVI (vigor vegetación)</th><td>{ndvi:.3f}</td></tr>
+    <tr><th>NDWI (contenido de agua)</th><td>{ndwi:.3f}</td></tr>
+  </table>
+  {"<div class='img-wrap'><img src='data:image/png;base64," + img_comp + "'/></div>" if img_comp else ""}
+  <div class="analisis">{analisis.get('espectral', '')}</div>
+</div>'''
+
+    # Sección 4: Forrajero
+    prod_forr = stats.get('forraje_kg_ms_ha', 0) or (resultados.get('analisis_forrajero', {}).get('disponibilidad_forrajera', {}).get('productividad_kg_ms_ha', 0) if 'analisis_forrajero' in resultados else 0)
+    disp_total = resultados.get('analisis_forrajero', {}).get('disponibilidad_forrajera', {}).get('disponibilidad_total_kg_ms', 0) if 'analisis_forrajero' in resultados else 0
+    ev_dia = resultados.get('analisis_forrajero', {}).get('equivalentes_vaca', {}).get('ev_por_dia', 0) if 'analisis_forrajero' in resultados else 0
+    ev_rec = resultados.get('analisis_forrajero', {}).get('equivalentes_vaca', {}).get('ev_recomendado', 0) if 'analisis_forrajero' in resultados else 0
+    html += f'''
+<div class="section">
+  <h2>🐮 Forrajero <span class="badge" style="background:{_color_score(score_forrajero)}">{_icon_score(score_forrajero)} {score_forrajero}</span></h2>
+  <table class="info-table">
+    <tr><th>Productividad</th><td>{prod_forr:,.0f} kg MS/ha</td></tr>
+    <tr><th>Disponibilidad total</th><td>{disp_total/1000:,.1f} ton MS</td></tr>
+    <tr><th>Equivalentes Vaca/día</th><td>{ev_dia:.1f} EV</td></tr>
+    <tr><th>Carga recomendada (30d)</th><td>{ev_rec:.1f} EV</td></tr>
+  </table>
+  {"<div class='img-wrap'><img src='data:image/png;base64," + img_forr + "'/></div>" if img_forr else ""}
+  <div class="analisis">{analisis.get('forrajero', '')}</div>
+</div>'''
+
+    # Sección 5: Mapas
+    html += '<div class="section"><h2>🗺️ Mapas de Calor</h2><div class="map-grid">'
+    tit_mapas = {'carbono': '🌳 Carbono (ton C/ha)', 'ndvi': '📈 NDVI', 'ndwi': '💧 NDWI',
+                 'biodiversidad': '🦋 Biodiversidad', 'forraje': '🌿 Forraje (kg MS/ha)'}
+    for var, tit in tit_mapas.items():
+        if mapas.get(var):
+            html += f'<div class="map-card"><div class="mtit">{tit}</div><img src="data:image/png;base64,{mapas[var]}"/></div>'
+    html += '</div></div>'
+
+    # Sección 6: PRV
+    if prv_potreros > 0:
+        html += f'''
+<div class="section">
+  <h2>🐄 Pastoreo Racional Voisin</h2>
+  <table class="info-table">
+    <tr><th>Potreros generados</th><td>{prv_potreros}</td></tr>
+    <tr><th>Productividad media PRV</th><td>{prv_prod:,.0f} kg MS/ha</td></tr>
+    <tr><th>EV soportables 30d</th><td>{prv_ev:.1f}</td></tr>
+  </table>
+</div>'''
+
+    # Sección 7: Recomendaciones
+    html += f'''
+<div class="section">
+  <h2>📋 Recomendaciones de Manejo</h2>
+  <div class="analisis">{analisis.get('recomendaciones', '')}</div>
+</div>
+
+<div class="footer">
+  <p>Generado por Sistema Satelital de Análisis Ambiental Integral</p>
+  <p style="margin-top:0.25rem">📱 <a href="https://wa.me/5493525532313" style="color:#3b82f6">+54 9 3525 532313</a></p>
+</div>
+</div>
+</body>
+</html>'''
+
+    return html
+
 # ===============================
 # FUNCIONES AUXILIARES
 # ===============================
@@ -3411,7 +3678,7 @@ def mostrar_informe():
     sistema = SistemaMapas()
     generador = GeneradorReportes(st.session_state.resultados, st.session_state.poligono_data, sistema)
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         if REPORTPDF_AVAILABLE:
             if st.button("📄 Generar PDF", use_container_width=True):
@@ -3439,6 +3706,12 @@ def mostrar_informe():
             geojson = generador.generar_geojson()
             if geojson:
                 st.download_button("⬇️ Descargar GeoJSON", geojson, f"area_{datetime.now().strftime('%Y%m%d_%H%M')}.geojson", "application/geo+json")
+    with col5:
+        if st.button("📊 Infografía HTML", use_container_width=True):
+            with st.spinner("Generando infografía..."):
+                html = generar_informe_infografia(st.session_state.resultados, st.session_state.poligono_data, sistema)
+                if html:
+                    st.download_button("⬇️ Descargar Infografía", html, f"infografia_{datetime.now().strftime('%Y%m%d_%H%M')}.html", "text/html")
 
 # ===============================
 # CONTROL DE USO DEMO (por IP)
