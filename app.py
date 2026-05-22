@@ -934,38 +934,93 @@ class SistemaMapas:
             if not puntos_malla:
                 return None
             puntos_interpolados = self._interpolar_valores_knn(puntos_muestra, puntos_malla, variable)
-            bounds = gdf_area.total_bounds
-            centro = [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]
             m = self.crear_mapa_con_base(gdf_area, zoom_extra=2)
-            folium.GeoJson(gdf_area.geometry.iloc[0], style_function=lambda x: {
-                'fillColor': 'transparent', 'color': '#1d4ed8', 'weight': 2, 'fillOpacity': 0.05, 'dashArray': '5, 5'
-            }).add_to(m)
+            # Polígono del área: borde visible
+            folium.GeoJson(
+                gdf_area.geometry.iloc[0],
+                style_function=lambda x: {
+                    'fillColor': 'transparent', 'color': '#ffffff', 'weight': 3,
+                    'fillOpacity': 0, 'dashArray': '8, 6'
+                }
+            ).add_to(m)
+            # Preparar datos para el HeatMap
+            values = []
             heat_data = []
             for punto in puntos_interpolados:
                 if variable == 'carbono':
-                    heat_data.append([punto['lat'], punto['lon'], punto['carbono_ton_ha']])
+                    val = punto['carbono_ton_ha']
                 elif variable == 'ndvi':
-                    heat_data.append([punto['lat'], punto['lon'], punto['ndvi']])
+                    val = punto['ndvi']
                 elif variable == 'ndwi':
-                    heat_data.append([punto['lat'], punto['lon'], punto['ndwi']])
+                    val = punto['ndwi']
                 elif variable == 'biodiversidad':
-                    heat_data.append([punto['lat'], punto['lon'], punto['indice_shannon']])
+                    val = punto['indice_shannon']
                 elif variable == 'forraje':
-                    heat_data.append([punto['lat'], punto['lon'], punto['productividad_kg_ms_ha']])
+                    val = punto['productividad_kg_ms_ha']
                 elif variable == 'ndre':
-                    heat_data.append([punto['lat'], punto['lon'], punto['ndre']])
+                    val = punto['ndre']
                 elif variable == 'msavi':
-                    heat_data.append([punto['lat'], punto['lon'], punto['msavi']])
+                    val = punto['msavi']
                 elif variable == 'evi':
-                    heat_data.append([punto['lat'], punto['lon'], punto['evi']])
+                    val = punto['evi']
+                else:
+                    continue
+                heat_data.append([punto['lat'], punto['lon'], val])
+                values.append(val)
             gradient = self.estilos['gradientes'].get(variable, self.estilos['gradientes']['carbono'])
-            radius = 45 if variable in ['carbono', 'biodiversidad', 'forraje'] else 40
-            blur = 40 if variable in ['carbono', 'biodiversidad', 'forraje'] else 35
-            HeatMap(heat_data, name=variable, min_opacity=0.7, radius=radius, blur=blur, gradient=gradient, max_zoom=18).add_to(m)
+            # HeatMap con parámetros más nítidos (menos blur, menos radio)
+            HeatMap(
+                heat_data, name=variable, min_opacity=0.5, radius=14,
+                blur=8, gradient=gradient, max_zoom=18
+            ).add_to(m)
+            # Puntos de muestreo reales como marcadores
+            for p in puntos_muestra:
+                folium.CircleMarker(
+                    [p['lat'], p['lon']],
+                    radius=5, color='white', weight=2,
+                    fill=True, fill_color='#333', fill_opacity=0.6,
+                    tooltip=f"Muestra: {p.get('nombre', '')}"
+                ).add_to(m)
+            # Leyenda de gradiente
+            vmin, vmax = min(values), max(values)
+            unidades = {'carbono': 'ton C/ha', 'ndvi': 'NDVI', 'ndwi': 'NDWI',
+                        'biodiversidad': 'Índice Shannon', 'forraje': 'kg MS/ha',
+                        'ndre': 'NDRE', 'msavi': 'MSAVI', 'evi': 'EVI'}
+            unit = unidades.get(variable, '')
+            self._agregar_leyenda_gradiente(m, gradient, vmin, vmax, unit)
             return m
         except Exception as e:
             st.warning(f"Error al crear mapa de calor para {variable}: {str(e)}")
             return None
+
+    def _agregar_leyenda_gradiente(self, m, gradient, vmin, vmax, unit=''):
+        """Agrega una leyenda de gradiente al mapa."""
+        grad_stops = ''.join(
+            f'<stop offset="{int(p*100)}%" stop-color="{c}"/>'
+            for p, c in sorted(gradient.items())
+        )
+        vmin_s = f'{vmin:,.1f}' if abs(vmin) < 10000 else f'{vmin:,.0f}'
+        vmax_s = f'{vmax:,.1f}' if abs(vmax) < 10000 else f'{vmax:,.0f}'
+        unit_s = f' ({unit})' if unit else ''
+        import uuid
+        gid = f'grad_{uuid.uuid4().hex[:8]}'
+        html = f'''
+        <div style="position:fixed; bottom:25px; right:25px; z-index:9999;
+                    background:rgba(15,23,42,0.85); backdrop-filter:blur(8px);
+                    padding:10px 14px; border-radius:12px;
+                    border:1px solid rgba(255,255,255,0.1);
+                    box-shadow:0 4px 20px rgba(0,0,0,0.4);">
+            <svg width="200" height="30" xmlns="http://www.w3.org/2000/svg">
+                <defs><linearGradient id="{gid}" x1="0%" y1="0%" x2="100%" y2="0%">{grad_stops}</linearGradient></defs>
+                <rect x="0" y="5" width="200" height="16" rx="3" fill="url(#{gid})" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+            </svg>
+            <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:#cbd5e1;margin-top:4px;">
+                <span>{vmin_s}</span>
+                <span style="font-weight:600;color:#f1f5f9;">{unit_s}</span>
+                <span>{vmax_s}</span>
+            </div>
+        </div>'''
+        m.get_root().html.add_child(folium.Element(html))
 
     def crear_mapa_combinado_interpolado(self, resultados, gdf_area=None):
         """
@@ -975,25 +1030,23 @@ class SistemaMapas:
         if not resultados or gdf_area is None or gdf_area.empty:
             return None
         try:
-            bounds = gdf_area.total_bounds
-            centro = [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]
             m = self.crear_mapa_con_base(gdf_area, zoom_extra=2)
-            # Capa base: polígono transparente
+            # Capa base: polígono con borde visible
             folium.GeoJson(gdf_area.geometry.iloc[0], style_function=lambda x: {
-                'fillColor': 'transparent', 'color': '#1d4ed8', 'weight': 2,
-                'fillOpacity': 0.05, 'dashArray': '5, 5'
+                'fillColor': 'transparent', 'color': '#ffffff', 'weight': 3,
+                'fillOpacity': 0, 'dashArray': '8, 6'
             }).add_to(m)
 
-            # Variables a incluir y su configuración
+            # Variables a incluir y su configuración (parámetros más nítidos)
             variables = [
-                ('carbono', '🌳 Carbono', 45, 40, False),
-                ('ndvi', '📈 NDVI', 40, 35, False),
-                ('ndwi', '💧 NDWI', 40, 35, False),
-                ('biodiversidad', '🦋 Biodiversidad', 45, 40, False),
-                ('forraje', '🌿 Forraje', 45, 40, True)  # forraje visible por defecto
+                ('carbono', '🌳 Carbono', 14, 8, False),
+                ('ndvi', '📈 NDVI', 12, 6, False),
+                ('ndwi', '💧 NDWI', 12, 6, False),
+                ('biodiversidad', '🦋 Biodiversidad', 14, 8, False),
+                ('forraje', '🌿 Forraje', 14, 8, True)  # forraje visible por defecto
             ]
 
-            # Generar malla única para todos (o generar por separado, pero compartir malla ahorra tiempo)
+            # Generar malla única para todos
             puntos_malla = self._generar_malla_puntos(gdf_area, densidad=1000)
             if not puntos_malla:
                 return None
@@ -1023,7 +1076,7 @@ class SistemaMapas:
                 HeatMap(
                     heat_data,
                     name=nombre,
-                    min_opacity=0.6,
+                    min_opacity=0.5,
                     radius=radius,
                     blur=blur,
                     gradient=gradient,
