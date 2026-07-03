@@ -602,7 +602,7 @@ class AnalisisForrajero:
         params = self.parametros_forrajeros.get(tipo_sistema, self.parametros_forrajeros['pastizal_natural'])
         productividad_base = params['productividad_kg_ms_ha'][categoria_productividad]
         factor_ndvi = 0.5 + (ndvi * 0.5)
-        productividad_ajustada = productividad_base * factor_ndvi * random.uniform(0.9, 1.1)
+        productividad_ajustada = productividad_base * factor_ndvi
         disponibilidad_total_kg_ms = productividad_ajustada * area_ha
         forraje_aprovechable_kg_ms = disponibilidad_total_kg_ms * params['eficiencia_aprovechamiento']
         tasa_crecimiento = params['tasa_crecimiento_diario'][categoria_productividad] * area_ha
@@ -764,8 +764,9 @@ class SistemaMapas:
         }
 
     @staticmethod
-    def crear_mapa_con_base(gdf, zoom_extra=0):
-        """Crea un mapa Folium con zoom automático al polígono."""
+    def crear_mapa_con_base(gdf, zoom_extra=0, usar_satelite=True):
+        """Crea un mapa Folium con zoom automático al polígono.
+           Si usar_satelite=True usa Esri Satellite, si no OpenStreetMap."""
         bounds = gdf.total_bounds
         if any(b != b for b in bounds):
             raise ValueError("total_bounds contiene NaN")
@@ -779,7 +780,14 @@ class SistemaMapas:
                 zoom = z
                 break
         zoom = max(8, min(18, zoom))
-        m = folium.Map(location=centro, zoom_start=zoom, tiles='OpenStreetMap', control_scale=True)
+        if usar_satelite:
+            m = folium.Map(
+                location=centro, zoom_start=zoom,
+                tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                attr='Esri, Maxar, Earthstar Geographics', control_scale=True
+            )
+        else:
+            m = folium.Map(location=centro, zoom_start=zoom, tiles='OpenStreetMap', control_scale=True)
         Fullscreen().add_to(m)
         MousePosition().add_to(m)
         return m
@@ -2586,7 +2594,7 @@ def cargar_archivo_parcela(uploaded_file):
 # ===============================
 # FUNCIÓN PRINCIPAL DE ANÁLISIS
 # ===============================
-def ejecutar_analisis_completo(gdf, tipo_ecosistema, num_puntos, usar_gee=False):
+def ejecutar_analisis_completo(gdf, tipo_ecosistema, num_puntos, usar_gee=False, fecha_inicio=None, fecha_fin=None):
     try:
         area_total = calcular_superficie(gdf)
         poligono = gdf.geometry.iloc[0]
@@ -2675,10 +2683,22 @@ def ejecutar_analisis_completo(gdf, tipo_ecosistema, num_puntos, usar_gee=False)
 
         carbono_promedio = verra.calcular_carbono_hectarea(ndvi_promedio, tipo_ecosistema, 1500)
 
-        # Análisis forrajero
+        # Análisis forrajero mejorado: suma de productividad por punto en lugar de usar solo el promedio
+        if puntos_forraje:
+            prod_promedio_ponderada = np.mean([p['productividad_kg_ms_ha'] for p in puntos_forraje])
+        else:
+            prod_promedio_ponderada = forrajero.estimar_disponibilidad_forrajera(ndvi_promedio, sistema_forrajero, area_por_punto)['productividad_kg_ms_ha']
+        productividad_total_estimada = prod_promedio_ponderada
         disponibilidad_forrajera = forrajero.estimar_disponibilidad_forrajera(ndvi_promedio, sistema_forrajero, area_total)
-        equivalentes_vaca = forrajero.calcular_equivalentes_vaca(disponibilidad_forrajera['forraje_aprovechable_kg_ms'], dias_permanencia=30)
-        sublotes = forrajero.dividir_lote_en_sublotes(area_total, disponibilidad_forrajera['productividad_kg_ms_ha'], heterogeneidad=0.3)
+        # Sobrescribir con valores basados en la suma de puntos para mayor precisión
+        disponibilidad_forrajera['productividad_kg_ms_ha'] = round(prod_promedio_ponderada, 2)
+        disponibilidad_forrajera['disponibilidad_total_kg_ms'] = round(prod_promedio_ponderada * area_total, 2)
+        disp_aprovechable = prod_promedio_ponderada * area_total * (
+            forrajero.parametros_forrajeros.get(sistema_forrajero, forrajero.parametros_forrajeros['pastizal_natural'])['eficiencia_aprovechamiento']
+        )
+        disponibilidad_forrajera['forraje_aprovechable_kg_ms'] = round(disp_aprovechable, 2)
+        equivalentes_vaca = forrajero.calcular_equivalentes_vaca(disp_aprovechable, dias_permanencia=30)
+        sublotes = forrajero.dividir_lote_en_sublotes(area_total, prod_promedio_ponderada, heterogeneidad=0.3)
         gdf_cuadricula = dividir_poligono_en_cuadricula(poligono, puntos_forraje, n_celdas=200)
 
         # === PASTOREO RACIONAL VOISIN (PRV) ===
@@ -2722,6 +2742,8 @@ def ejecutar_analisis_completo(gdf, tipo_ecosistema, num_puntos, usar_gee=False)
 
         resultados = {
             'area_total_ha': area_total,
+            'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d') if fecha_inicio else None,
+            'fecha_fin': fecha_fin.strftime('%Y-%m-%d') if fecha_fin else None,
             'carbono_total_ton': round(carbono_total, 2),
             'co2_total_ton': round(co2_total, 2),
             'carbono_promedio_ha': round(carbono_total / area_total, 2) if area_total > 0 else 0,
@@ -3716,36 +3738,84 @@ def mostrar_informe():
 # ===============================
 # CONTROL DE USO DEMO (por IP)
 # ===============================
+# SISTEMA DE CRÉDITOS CÍCLICO
+# ===============================
 import hashlib, json
 from pathlib import Path
 
-_LIMITE_DEMO = 2
-_ARCHIVO_USO = Path("/tmp/.uso_analisis.json")
+_ARCHIVO_CREDITOS = Path("/tmp/.creditos_forrajero.json")
+_LIMITES_POR_CICLO = {"demo": 2, "pagado": 3, "ilimitado": 999999}
+
+# IPs con acceso ilimitado (admin/desarrollador)
+_IPS_ILIMITADAS = {
+    "181.164.133.59",  # IP del desarrollador
+}
 
 def _cliente_id():
     try:
         ip = st.context.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-        if ip:
-            return hashlib.sha256(ip.encode()).hexdigest()[:16]
-    except Exception:
-        pass
+        if ip: return hashlib.sha256(ip.encode()).hexdigest()[:16]
+    except Exception: pass
     return "anon"
 
-def _uso_restante():
-    cid = _cliente_id()
-    if not _ARCHIVO_USO.exists():
-        return _LIMITE_DEMO
-    data = json.loads(_ARCHIVO_USO.read_text())
-    usado = data.get(cid, 0)
-    return max(0, _LIMITE_DEMO - usado)
+def _cargar_datos():
+    if _ARCHIVO_CREDITOS.exists():
+        try: return json.loads(_ARCHIVO_CREDITOS.read_text())
+        except Exception: pass
+    return {}
 
-def _incrementar_uso():
-    cid = _cliente_id()
-    data = {}
-    if _ARCHIVO_USO.exists():
-        data = json.loads(_ARCHIVO_USO.read_text())
-    data[cid] = data.get(cid, 0) + 1
-    _ARCHIVO_USO.write_text(json.dumps(data, indent=2))
+def _guardar_datos(data):
+    _ARCHIVO_CREDITOS.write_text(json.dumps(data, indent=2))
+
+def _es_ip_ilimitada():
+    try:
+        ip = st.context.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        return ip in _IPS_ILIMITADAS
+    except Exception:
+        return False
+
+def _init_cliente(cid):
+    data = _cargar_datos()
+    if cid not in data:
+        ciclo = "ilimitado" if _es_ip_ilimitada() else "demo"
+        data[cid] = {"usados": 0, "ciclo": ciclo}
+        _guardar_datos(data)
+
+def creditos_restantes():
+    if _es_ip_ilimitada():
+        return 999999
+    cid = _cliente_id(); _init_cliente(cid)
+    data = _cargar_datos()
+    info = data.get(cid, {"usados": 0, "ciclo": "demo"})
+    return max(0, _LIMITES_POR_CICLO.get(info["ciclo"], 2) - info["usados"])
+
+def consumir_credito():
+    if _es_ip_ilimitada():
+        return True
+    cid = _cliente_id(); _init_cliente(cid)
+    data = _cargar_datos()
+    info = data.get(cid, {"usados": 0, "ciclo": "demo"})
+    lim = _LIMITES_POR_CICLO.get(info["ciclo"], 2)
+    if info["usados"] < lim:
+        info["usados"] += 1; data[cid] = info; _guardar_datos(data)
+        return True
+    return False
+
+def recargar_creditos():
+    cid = _cliente_id(); _init_cliente(cid)
+    data = _cargar_datos()
+    info = data.get(cid, {"usados": 0, "ciclo": "demo"})
+    info["usados"] = 0; info["ciclo"] = "pagado"
+    data[cid] = info; _guardar_datos(data)
+
+def info_creditos():
+    if _es_ip_ilimitada():
+        return {"restantes": 999999, "ciclo": "ilimitado", "limite": 999999, "usados": 0}
+    cid = _cliente_id(); _init_cliente(cid)
+    data = _cargar_datos()
+    info = data.get(cid, {"usados": 0, "ciclo": "demo"})
+    lim = _LIMITES_POR_CICLO.get(info["ciclo"], 2)
+    return {"restantes": max(0, lim - info["usados"]), "ciclo": info["ciclo"], "limite": lim, "usados": info["usados"]}
 
 # ===============================
 # MAIN
@@ -3764,9 +3834,9 @@ def main():
         st.session_state.mapa = None
     # Inicializar modelo seleccionado por defecto
     if 'selected_model' not in st.session_state:
-        st.session_state.selected_model = available_models[0] if available_models else "llama3-70b-8192"
+        st.session_state.selected_model = available_models[0] if available_models else "openai/gpt-oss-120b"
     if 'selected_model' not in st.session_state:
-        st.session_state.selected_model = available_models[0] if available_models else "llama3-70b-8192"
+        st.session_state.selected_model = available_models[0] if available_models else "openai/gpt-oss-120b"
 
     st.markdown(
         '<div style="display:flex;align-items:center;gap:1rem;margin:0 0 0.25rem 0;">'
@@ -3802,12 +3872,23 @@ def main():
                     sistema = SistemaMapas()
                     st.session_state.mapa = sistema.crear_mapa_area(gdf)
 
-        restantes = _uso_restante()
+        cinfo = info_creditos()
+        if cinfo["ciclo"] == "ilimitado":
+            color = "#10b981"
+            icono = "⚡"
+            ciclo_etq = "Ilimitado"
+            texto_cred = "♾️ análisis"
+        else:
+            color = "#fbbf24" if cinfo["restantes"] > 0 else "#ef4444"
+            icono = "🎯" if cinfo["restantes"] > 0 else "🔒"
+            ciclo_etq = "Demo" if cinfo["ciclo"] == "demo" else "Premium"
+            texto_cred = f'{cinfo["restantes"]}/{cinfo["limite"]} análisis'
+        bg_color = color + "1a"
         st.markdown(
             f'<div style="display:flex;align-items:center;gap:0.5rem;margin:0.75rem 0;'
-            f'background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);'
-            f'border-radius:8px;padding:0.4rem 0.75rem;font-size:0.75rem;color:#fbbf24;">'
-            f'🎯 Demo — {restantes}/2 análisis gratuitos'
+            f'background:{bg_color};border:1px solid {color}33;'
+            f'border-radius:8px;padding:0.4rem 0.75rem;font-size:0.75rem;color:{color};">'
+            f'{icono} {ciclo_etq} — {texto_cred}'
             f'</div>', unsafe_allow_html=True
         )
 
@@ -3821,6 +3902,9 @@ def main():
             ]
             tipo_ecosistema = st.selectbox("Ecosistema", ecosistemas, label_visibility="collapsed")
             num_puntos = st.slider("Puntos de muestreo", 10, 200, 50)
+            st.markdown('<p style="color:#64748b;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">📅 Fechas de análisis</p>', unsafe_allow_html=True)
+            fecha_inicio = st.date_input("Fecha inicio", datetime.now() - timedelta(days=30), label_visibility="collapsed")
+            fecha_fin = st.date_input("Fecha fin", datetime.now(), label_visibility="collapsed")
             usar_gee = False
             if GEE_AVAILABLE and st.session_state.gee_authenticated:
                 usar_gee = st.checkbox("Usar datos reales de GEE")
@@ -3834,14 +3918,17 @@ def main():
                 )
             
             st.markdown('<br>', unsafe_allow_html=True)
-            if _uso_restante() <= 0:
+            if creditos_restantes() <= 0:
+                cinfo = info_creditos()
+                titulo = "🔒 Premium agotado" if cinfo["ciclo"] == "pagado" else "🎯 Demo completado"
+                desc = ("Adquirí más créditos para seguir usando la plataforma."
+                        if cinfo["ciclo"] == "pagado" else
+                        "Ya usaste los 2 análisis gratuitos. <strong>Contactame</strong> para un plan personalizado.")
                 st.markdown(
-                    '<div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);'
-                    'border-radius:12px;padding:1.25rem;text-align:center;">'
-                    '<div style="font-size:1.1rem;font-weight:600;color:#fbbf24;margin-bottom:0.5rem;">🎯 Demo completado</div>'
-                    '<div style="font-size:0.85rem;color:#94a3b8;margin-bottom:1rem;">'
-                    'Ya usaste los 2 análisis gratuitos. <strong>Contactame</strong> para un análisis personalizado '
-                    'con entrega de informe completo.</div>'
+                    f'<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);'
+                    f'border-radius:12px;padding:1.25rem;text-align:center;">'
+                    f'<div style="font-size:1.1rem;font-weight:600;color:#ef4444;margin-bottom:0.5rem;">{titulo}</div>'
+                    f'<div style="font-size:0.85rem;color:#94a3b8;margin-bottom:1rem;">{desc}</div>'
                     '<a href="https://wa.me/5493525532313" target="_blank" '
                     'style="display:inline-block;background:#25D366;color:white;padding:0.6rem 1.5rem;'
                     'border-radius:8px;text-decoration:none;font-size:0.9rem;font-weight:600;margin-bottom:0.5rem;">'
@@ -3849,16 +3936,25 @@ def main():
                     '<a href="https://mpago.la/1AahHK6" target="_blank" '
                     'style="display:inline-block;background:#009ee3;color:white;padding:0.5rem 1.2rem;'
                     'border-radius:8px;text-decoration:none;font-size:0.85rem;font-weight:600;margin-top:0.3rem;">'
-                    '💳 Pagar análisis completo (Mercado Pago)</a>'
+                    '💳 Pagar próxima recarga (Mercado Pago)</a>'
                     '</div>', unsafe_allow_html=True
                 )
+                with st.expander("🔐 Admin — Recargar créditos"):
+                    pwd = st.text_input("Contraseña", type="password", key="admin_pwd_forr")
+                    if st.button("Recargar 3 créditos"):
+                        if pwd == "famatina2025":
+                            recargar_creditos()
+                            st.success("✅ 3 créditos otorgados. Recargá la página.")
+                            st.rerun()
+                        else:
+                            st.error("❌ Contraseña incorrecta")
             else:
                 if st.button("🚀 Ejecutar Análisis Completo", type="primary", use_container_width=True):
                     with st.spinner("Analizando..."):
-                        resultados = ejecutar_analisis_completo(st.session_state.poligono_data, tipo_ecosistema, num_puntos, usar_gee)
+                        resultados = ejecutar_analisis_completo(st.session_state.poligono_data, tipo_ecosistema, num_puntos, usar_gee, fecha_inicio, fecha_fin)
                         if resultados:
                             st.session_state.resultados = resultados
-                            _incrementar_uso()
+                            consumir_credito()
                             st.markdown('<div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:0.5rem 0.75rem;font-size:0.85rem;color:#6ee7b7;text-align:center;">✅ Análisis completado</div>', unsafe_allow_html=True)
 
     if st.session_state.poligono_data is None:

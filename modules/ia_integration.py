@@ -19,10 +19,11 @@ if GROQ_API_KEY:
         from groq import Groq
         client = Groq(api_key=GROQ_API_KEY)
         available_models = [
-            "llama3-70b-8192",
-            "llama3-8b-8192",
-            "mixtral-8x7b-32768",
-            "gemma2-9b-it",
+            "openai/gpt-oss-120b",
+            "qwen/qwen3.6-27b",
+            "openai/gpt-oss-20b",
+            "qwen/qwen3-32b",
+            "llama-3.3-70b-versatile",
         ]
     except ImportError:
         client = None
@@ -58,7 +59,7 @@ def preparar_resumen(resultados: Dict) -> Tuple[pd.DataFrame, Dict]:
     return df, stats
 
 
-def _consulta_ia(prompt: str, model: str = "llama3-70b-8192") -> str:
+def _consulta_ia(prompt: str, model: str = "openai/gpt-oss-120b") -> str:
     if client is None:
         return _generar_simulado(prompt)
 
