@@ -591,7 +591,7 @@ class AnalisisForrajero:
             'alto': {'ndvi_min': 0.5, 'ndvi_max': 1.0, 'factor': 1.0}
         }
 
-    def estimar_disponibilidad_forrajera(self, ndvi: float, tipo_sistema: str, area_ha: float) -> Dict:
+    def estimar_disponibilidad_forrajera(self, ndvi: float, tipo_sistema: str, area_ha: float, dias_periodo: int = 30) -> Dict:
         if ndvi < 0.2:
             categoria_productividad = 'bajo'
         elif ndvi > 0.5:
@@ -600,15 +600,16 @@ class AnalisisForrajero:
             categoria_productividad = 'medio'
         
         params = self.parametros_forrajeros.get(tipo_sistema, self.parametros_forrajeros['pastizal_natural'])
-        productividad_base = params['productividad_kg_ms_ha'][categoria_productividad]
         factor_ndvi = 0.5 + (ndvi * 0.5)
-        productividad_ajustada = productividad_base * factor_ndvi
-        disponibilidad_total_kg_ms = productividad_ajustada * area_ha
+        # Usar tasa de crecimiento diario × período en vez de productividad anual directa
+        tasa_diaria_base = params['tasa_crecimiento_diario'][categoria_productividad]
+        productividad_periodo = tasa_diaria_base * dias_periodo * factor_ndvi
+        disponibilidad_total_kg_ms = productividad_periodo * area_ha
         forraje_aprovechable_kg_ms = disponibilidad_total_kg_ms * params['eficiencia_aprovechamiento']
         tasa_crecimiento = params['tasa_crecimiento_diario'][categoria_productividad] * area_ha
         
         return {
-            'productividad_kg_ms_ha': round(productividad_ajustada, 2),
+            'productividad_kg_ms_ha': round(productividad_periodo, 2),
             'disponibilidad_total_kg_ms': round(disponibilidad_total_kg_ms, 2),
             'forraje_aprovechable_kg_ms': round(forraje_aprovechable_kg_ms, 2),
             'tasa_crecimiento_diario_kg': round(tasa_crecimiento, 2),
@@ -2197,7 +2198,7 @@ def generar_informe_infografia(resultados, gdf, sistema_mapas=None):
 
     score_carbono = _score(shannon, {'bajo': (0, 1.5), 'medio': (1.5, 2.5), 'alto': (2.5, 10)})
     score_ndvi = _score(ndvi, {'bajo': (-1, 0.3), 'medio': (0.3, 0.6), 'alto': (0.6, 1)})
-    score_forrajero = _score(forraje_kg, {'bajo': (0, 2000), 'medio': (2000, 5000), 'alto': (5000, 99999)})
+    score_forrajero = _score(forraje_kg, {'bajo': (0, 300), 'medio': (300, 1000), 'alto': (1000, 99999)})
 
     def _color_score(s):
         return {'bajo': '#ef4444', 'medio': '#f59e0b', 'alto': '#10b981', 'regular': '#64748b'}.get(s, '#64748b')
