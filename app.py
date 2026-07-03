@@ -3749,13 +3749,28 @@ _LIMITES_POR_CICLO = {"demo": 2, "pagado": 3, "ilimitado": 999999}
 # IPs con acceso ilimitado (admin/desarrollador)
 _IPS_ILIMITADAS = {
     "181.164.133.59",  # IP del desarrollador
+    "127.0.0.1",
+    "::1",
+    "localhost",
+    "0.0.0.1",
 }
 
-def _cliente_id():
+def _obtener_ip():
     try:
-        ip = st.context.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-        if ip: return hashlib.sha256(ip.encode()).hexdigest()[:16]
+        for h in ["X-Forwarded-For", "X-Real-IP", "Remote-Addr"]:
+            v = st.context.headers.get(h, "").strip()
+            if v:
+                return v.split(",")[0].strip()
     except Exception: pass
+    try:
+        import socket
+        return socket.gethostbyname(socket.gethostname())
+    except: pass
+    return ""
+
+def _cliente_id():
+    ip = _obtener_ip()
+    if ip: return hashlib.sha256(ip.encode()).hexdigest()[:16]
     return "anon"
 
 def _cargar_datos():
@@ -3768,17 +3783,19 @@ def _guardar_datos(data):
     _ARCHIVO_CREDITOS.write_text(json.dumps(data, indent=2))
 
 def _es_ip_ilimitada():
-    try:
-        ip = st.context.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-        return ip in _IPS_ILIMITADAS
-    except Exception:
-        return False
+    ip = _obtener_ip()
+    return ip in _IPS_ILIMITADAS
 
 def _init_cliente(cid):
     data = _cargar_datos()
+    ilimitado = _es_ip_ilimitada()
     if cid not in data:
-        ciclo = "ilimitado" if _es_ip_ilimitada() else "demo"
+        ciclo = "ilimitado" if ilimitado else "demo"
         data[cid] = {"usados": 0, "ciclo": ciclo}
+        _guardar_datos(data)
+    elif ilimitado and data[cid].get("ciclo") != "ilimitado":
+        data[cid]["ciclo"] = "ilimitado"
+        data[cid]["usados"] = 0
         _guardar_datos(data)
 
 def creditos_restantes():
