@@ -1889,11 +1889,13 @@ class GeneradorReportes:
 def generar_reporte_ia(resultados, gdf, sistema_mapas=None):
     """
     Genera un informe en Word con análisis de IA usando Groq.
+    Formato profesional inspirado en informes técnicos agronómicos.
     """
     import tempfile
     from docx import Document
-    from docx.shared import Inches, Pt
+    from docx.shared import Inches, Pt, Cm, RGBColor
     from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.enum.table import WD_TABLE_ALIGNMENT
     from datetime import datetime
     import io
     import os
@@ -1902,189 +1904,339 @@ def generar_reporte_ia(resultados, gdf, sistema_mapas=None):
         st.error("python-docx no está instalado. No se puede generar el informe.")
         return None
 
+    df, stats = preparar_resumen(resultados)
+    sistema_nombre = stats.get('tipo_ecosistema', 'N/D')
+    area_total = stats.get('area_total_ha', 0)
+    puntos = stats.get('num_puntos', 0)
+    ndvi = stats.get('ndvi_promedio', 0)
+    ndwi = stats.get('ndwi_promedio', 0)
+    carbono = stats.get('carbono_total_ton', 0)
+    co2 = stats.get('co2_total_ton', 0)
+    shannon = stats.get('shannon_promedio', 0)
+    fecha_str = datetime.now().strftime('%d/%m/%Y')
+    hora_str = datetime.now().strftime('%H:%M')
+
+    # Coordenadas del polígono
+    try:
+        bounds = gdf.total_bounds
+        centroid = gdf.geometry.centroid.iloc[0]
+        lat_c = centroid.y
+        lon_c = centroid.x
+        coord_str = f"{abs(lat_c):.4f}{'S' if lat_c < 0 else 'N'}, {abs(lon_c):.4f}{'W' if lon_c < 0 else 'E'}"
+    except:
+        coord_str = 'N/D'
+
+    # Nombre del campo (del nombre del archivo o genérico)
+    campo_nombre = 'Campo de Estudio'
+
     with tempfile.TemporaryDirectory() as tmpdir:
         doc = Document()
         section = doc.sections[0]
-        section.left_margin = Inches(1)
-        section.right_margin = Inches(1)
-        section.top_margin = Inches(1)
-        section.bottom_margin = Inches(1)
+        section.left_margin = Cm(2.5)
+        section.right_margin = Cm(2.5)
+        section.top_margin = Cm(2.5)
+        section.bottom_margin = Cm(2.5)
 
-        title = doc.add_heading('INFORME AMBIENTAL CON ANÁLISIS DE IA (GROQ)', 0)
+        # === ENCABEZADO / BANNER ===
+        title = doc.add_heading('INFORME AMBIENTAL Y FORRAJERO', level=0)
         title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        subtitle = doc.add_paragraph(f'Fecha: {datetime.now().strftime("%d/%m/%Y %H:%M")}')
-        subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        doc.add_paragraph()
+        for run in title.runs:
+            run.font.color.rgb = RGBColor(0x1a, 0x1a, 0x2e)
 
-        df, stats = preparar_resumen(resultados)
+        sub = doc.add_paragraph()
+        sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = sub.add_run(f'ANÁLISIS DE {campo_nombre}')
+        run.bold = True
+        run.font.size = Pt(14)
 
-        # 1. Resumen ejecutivo
-        doc.add_heading('1. RESUMEN EJECUTIVO', level=1)
-        tabla_resumen = doc.add_table(rows=1, cols=3)
+        sub2 = doc.add_paragraph()
+        sub2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        sub2.add_run(f'Ecosistema: {sistema_nombre}').italic = True
+
+        sub3 = doc.add_paragraph()
+        sub3.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        sub3.add_run(f'{campo_nombre} — {coord_str} — Superficie: ~{area_total:,.0f} ha')
+
+        sub4 = doc.add_paragraph()
+        sub4.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        sub4.add_run(f'Fecha: {fecha_str} - Coordenadas: {coord_str} - Superficie: ~{area_total:,.0f} ha')
+
+        sub5 = doc.add_paragraph()
+        sub5.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run5 = sub5.add_run('Ingeniero Agrónomo: Martin E. Cano')
+        run5.bold = True
+
+        doc.add_paragraph()  # separador
+
+        # === 1. RESUMEN EJECUTIVO ===
+        doc.add_heading('1. Resumen Ejecutivo', level=1)
+        resumen_texto = (
+            f'El presente informe analiza el potencial forrajero, de carbono y biodiversidad de un área '
+            f'de aproximadamente {area_total:,.0f} ha ({sistema_nombre}). '
+            f'El estudio incluye {puntos} puntos de muestreo satelital, análisis de NDVI ({ndvi:.3f}), '
+            f'NDWI ({ndwi:.3f}), estimación de carbono ({carbono:,.0f} ton C, equivalente a {co2:,.0f} ton CO₂e), '
+            f'biodiversidad (Shannon H\'={shannon:.3f}), y evaluación forrajera con Pastoreo Racional Voisin.'
+        )
+        doc.add_paragraph(resumen_texto)
+
+        tabla_resumen = doc.add_table(rows=1, cols=2)
         tabla_resumen.style = 'Light Shading'
-        tabla_resumen.cell(0, 0).text = 'Métrica'
-        tabla_resumen.cell(0, 1).text = 'Valor'
-        tabla_resumen.cell(0, 2).text = 'Interpretación'
-
-        metricas = [
-            ('Área total', f"{stats['area_total_ha']:,.1f} ha", 'Superficie del área de estudio'),
-            ('Carbono total', f"{stats['carbono_total_ton']:,.0f} ton C", 'Almacenamiento total de carbono'),
-            ('CO₂ equivalente', f"{stats['co2_total_ton']:,.0f} ton CO₂e", 'Potencial de créditos de carbono'),
-            ('Índice Shannon', f"{stats['shannon_promedio']:.3f}", 'Nivel de biodiversidad'),
-            ('NDVI promedio', f"{stats['ndvi_promedio']:.3f}", 'Salud de la vegetación'),
-            ('NDWI promedio', f"{stats['ndwi_promedio']:.3f}", 'Contenido de agua'),
-            ('Tipo ecosistema', stats['tipo_ecosistema'], 'Vegetación predominante'),
-            ('Puntos muestreo', str(stats['num_puntos']), 'Muestras analizadas')
+        tabla_resumen.alignment = WD_TABLE_ALIGNMENT.CENTER
+        hdr = tabla_resumen.rows[0].cells
+        hdr[0].text = 'Variable'
+        hdr[1].text = 'Valor'
+        datos_resumen = [
+            ('Superficie total', f'{area_total:,.0f} ha'),
+            ('Puntos de muestreo', str(puntos)),
+            ('Ecosistema', sistema_nombre),
+            ('NDVI promedio', f'{ndvi:.3f}'),
+            ('NDWI promedio', f'{ndwi:.3f}'),
+            ('Carbono total', f'{carbono:,.0f} ton C'),
+            ('CO₂ equivalente', f'{co2:,.0f} ton CO₂e'),
+            ('Índice Shannon', f'{shannon:.3f}'),
         ]
-        for i, (met, val, interp) in enumerate(metricas, 1):
+        if 'analisis_forrajero' in resultados:
+            fa = resultados['analisis_forrajero']['disponibilidad_forrajera']
+            ev = resultados['analisis_forrajero']['equivalentes_vaca']
+            datos_resumen.extend([
+                ('Productividad forrajera', f'{fa["productividad_kg_ms_ha"]:,.0f} kg MS/ha/30d'),
+                ('Forraje aprovechable', f'{fa["forraje_aprovechable_kg_ms"]/1000:,.1f} ton MS/30d'),
+                ('EV recomendado (30d)', f'{ev["ev_recomendado"]:.1f} EV'),
+            ])
+        for var, val in datos_resumen:
             row = tabla_resumen.add_row().cells
-            row[0].text = met
+            row[0].text = var
             row[1].text = val
-            row[2].text = interp
         doc.add_paragraph()
 
-        # 2. Análisis de Carbono (usando función de ia_integration)
-        doc.add_heading('2. ANÁLISIS DE CARBONO', level=1)
+        fig_num = [1]  # contador mutable para figuras
+
+        def _add_chart(fig, caption, tmpdir, width=Inches(5.5)):
+            if not fig:
+                return
+            try:
+                img_bytes = fig.to_image(format='png', width=1000, height=600, scale=2)
+                img_path = os.path.join(tmpdir, f'fig_{fig_num[0]}.png')
+                with open(img_path, 'wb') as f:
+                    f.write(img_bytes)
+                doc.add_picture(img_path, width=width)
+                p = doc.add_paragraph()
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                run = p.add_run(f'Figura {fig_num[0]}. {caption}')
+                run.bold = True
+                run.font.size = Pt(9)
+                run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+                fig_num[0] += 1
+            except Exception:
+                pass
+
+        def _add_mapa(var, caption, tmpdir):
+            if not sistema_mapas:
+                return
+            try:
+                mapa = sistema_mapas.crear_mapa_estatico(resultados, var, gdf)
+                if mapa:
+                    img_path = os.path.join(tmpdir, f'mapa_{var}.png')
+                    with open(img_path, 'wb') as f:
+                        f.write(mapa.getvalue())
+                    doc.add_picture(img_path, width=Inches(5.5))
+                    p = doc.add_paragraph()
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    run = p.add_run(f'Figura {fig_num[0]}. {caption}')
+                    run.bold = True
+                    run.font.size = Pt(9)
+                    run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+                    fig_num[0] += 1
+            except Exception:
+                pass
+
+        # === 2. ANÁLISIS DE CARBONO ===
+        doc.add_heading('2. Análisis de Carbono', level=1)
         if resultados.get('desglose_promedio'):
-            doc.add_heading('Distribución por pools', level=2)
+            desc = {'AGB': 'Biomasa Aérea Viva', 'BGB': 'Biomasa de Raíces', 'DW': 'Madera Muerta', 'LI': 'Hojarasca', 'SOC': 'Carbono Orgánico del Suelo'}
             tabla_pools = doc.add_table(rows=1, cols=3)
             tabla_pools.style = 'Light Shading'
-            tabla_pools.cell(0, 0).text = 'Pool'
-            tabla_pools.cell(0, 1).text = 'Descripción'
-            tabla_pools.cell(0, 2).text = 'Ton C/ha'
-            desc = {'AGB':'Biomasa Aérea Viva', 'BGB':'Biomasa de Raíces', 'DW':'Madera Muerta', 'LI':'Hojarasca', 'SOC':'Carbono Orgánico del Suelo'}
+            tabla_pools.alignment = WD_TABLE_ALIGNMENT.CENTER
+            hdr2 = tabla_pools.rows[0].cells
+            hdr2[0].text = 'Pool de Carbono'
+            hdr2[1].text = 't C/ha'
+            hdr2[2].text = f'Total (t C en {area_total:,.0f} ha)'
             for pool, valor in resultados['desglose_promedio'].items():
                 row = tabla_pools.add_row().cells
-                row[0].text = pool
-                row[1].text = desc.get(pool, pool)
-                row[2].text = f"{valor:.2f}"
+                row[0].text = f'{pool} ({desc.get(pool, pool)})'
+                row[1].text = f'{valor:.2f}'
+                row[2].text = f'{valor * area_total:,.0f}'
             doc.add_paragraph()
-            vis = Visualizaciones()
-            fig_carbono = vis.crear_grafico_barras_carbono(resultados['desglose_promedio'])
-            if fig_carbono:
-                try:
-                    img_bytes = fig_carbono.to_image(format='png', width=800, height=500, scale=2)
-                    img_path = os.path.join(tmpdir, 'carbono.png')
-                    with open(img_path, 'wb') as f:
-                        f.write(img_bytes)
-                    doc.add_picture(img_path, width=Inches(5))
-                    doc.add_paragraph()
-                except:
-                    pass
+
+        vis = Visualizaciones()
+        fig_carbono = vis.crear_grafico_barras_carbono(resultados.get('desglose_promedio', {}))
+        _add_chart(fig_carbono, 'Distribución de carbono por pool', tmpdir)
+        _add_mapa('carbono', 'Mapa de captura de carbono', tmpdir)
 
         doc.add_heading('2.1 Interpretación técnica', level=2)
         analisis_carbono = generar_analisis_carbono(df, stats)
         doc.add_paragraph(analisis_carbono)
 
-        # 3. Análisis de Biodiversidad
-        doc.add_heading('3. ANÁLISIS DE BIODIVERSIDAD', level=1)
+        # === 3. ANÁLISIS DE BIODIVERSIDAD ===
+        doc.add_heading('3. Análisis de Biodiversidad', level=1)
         if resultados.get('puntos_biodiversidad'):
             biodiv = resultados['puntos_biodiversidad'][0]
             tabla_biodiv = doc.add_table(rows=1, cols=2)
             tabla_biodiv.style = 'Light Shading'
-            tabla_biodiv.cell(0, 0).text = 'Métrica'
-            tabla_biodiv.cell(0, 1).text = 'Valor'
-            metricas_bio = [
-                ('Índice Shannon', f"{biodiv.get('indice_shannon', 0):.3f}"),
+            tabla_biodiv.alignment = WD_TABLE_ALIGNMENT.CENTER
+            hdr3 = tabla_biodiv.rows[0].cells
+            hdr3[0].text = 'Métrica'
+            hdr3[1].text = 'Valor'
+            for met, val in [
+                ('Índice Shannon', f'{biodiv.get("indice_shannon", 0):.3f}'),
                 ('Categoría', biodiv.get('categoria', 'N/A')),
                 ('Riqueza de especies', str(biodiv.get('riqueza_especies', 0))),
-                ('Abundancia total', f"{biodiv.get('abundancia_total', 0):,}")
-            ]
-            for met, val in metricas_bio:
+                ('Abundancia total', f'{biodiv.get("abundancia_total", 0):,}'),
+            ]:
                 row = tabla_biodiv.add_row().cells
                 row[0].text = met
                 row[1].text = val
             doc.add_paragraph()
             fig_biodiv = vis.crear_grafico_radar_biodiversidad(biodiv)
-            if fig_biodiv:
-                try:
-                    img_bytes = fig_biodiv.to_image(format='png', width=800, height=800, scale=2)
-                    img_path = os.path.join(tmpdir, 'biodiv.png')
-                    with open(img_path, 'wb') as f:
-                        f.write(img_bytes)
-                    doc.add_picture(img_path, width=Inches(5))
-                    doc.add_paragraph()
-                except:
-                    pass
+            _add_chart(fig_biodiv, 'Biodiversidad — radar de indicadores', tmpdir, Inches(4))
+        _add_mapa('biodiversidad', 'Mapa de biodiversidad (Shannon)', tmpdir)
 
         doc.add_heading('3.1 Interpretación técnica', level=2)
         analisis_biodiv = generar_analisis_biodiversidad(df, stats)
         doc.add_paragraph(analisis_biodiv)
 
-        # 4. Análisis de Índices Espectrales
-        doc.add_heading('4. ANÁLISIS DE ÍNDICES ESPECTRALES', level=1)
+        # === 4. ÍNDICES ESPECTRALES ===
+        doc.add_heading('4. Análisis de Índices Espectrales', level=1)
+        tabla_idx = doc.add_table(rows=1, cols=3)
+        tabla_idx.style = 'Light Shading'
+        tabla_idx.alignment = WD_TABLE_ALIGNMENT.CENTER
+        hdr4 = tabla_idx.rows[0].cells
+        hdr4[0].text = 'Índice'
+        hdr4[1].text = 'Valor medio'
+        hdr4[2].text = 'Significado'
+        for idx_name, idx_val, idx_desc in [
+            ('NDVI', f'{ndvi:.3f}', 'Salud de la vegetación, actividad fotosintética'),
+            ('NDWI', f'{ndwi:.3f}', 'Contenido hídrico, estrés hídrico'),
+        ]:
+            row = tabla_idx.add_row().cells
+            row[0].text = idx_name
+            row[1].text = idx_val
+            row[2].text = idx_desc
+        doc.add_paragraph()
+
+        if resultados.get('puntos_ndvi'):
+            import plotly.graph_objects as go
+            ndvi_vals = [p['ndvi'] for p in resultados['puntos_ndvi']]
+            ndwi_vals = [p['ndwi'] for p in resultados.get('puntos_ndwi', [])] if resultados.get('puntos_ndwi') else []
+            fig_spec = go.Figure()
+            fig_spec.add_trace(go.Histogram(x=ndvi_vals, name='NDVI', marker_color='#22c55e', opacity=0.7, nbinsx=30))
+            if ndwi_vals:
+                fig_spec.add_trace(go.Histogram(x=ndwi_vals, name='NDWI', marker_color='#3b82f6', opacity=0.7, nbinsx=30))
+            fig_spec.update_layout(
+                title='Distribución de Índices Espectrales',
+                xaxis_title='Valor', yaxis_title='Frecuencia',
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#cbd5e1'), height=400,
+                barmode='overlay'
+            )
+            _add_chart(fig_spec, 'Distribución NDVI y NDWI', tmpdir)
+        _add_mapa('ndvi', 'Mapa NDVI del área de estudio', tmpdir)
+        _add_mapa('ndwi', 'Mapa NDWI del área de estudio', tmpdir)
+
         doc.add_heading('4.1 Interpretación técnica', level=2)
         analisis_espectral = generar_analisis_espectral(df, stats)
         doc.add_paragraph(analisis_espectral)
 
-        # 5. Análisis Forrajero
-        doc.add_heading('5. ANÁLISIS FORRAJERO', level=1)
+        # === 5. ANÁLISIS FORRAJERO ===
+        doc.add_heading('5. Análisis Forrajero', level=1)
         if 'analisis_forrajero' in resultados:
-            forrajero = resultados['analisis_forrajero']
-            disp = forrajero['disponibilidad_forrajera']
-            ev = forrajero['equivalentes_vaca']
+            fa = resultados['analisis_forrajero']['disponibilidad_forrajera']
+            ev = resultados['analisis_forrajero']['equivalentes_vaca']
             tabla_forraje = doc.add_table(rows=1, cols=2)
             tabla_forraje.style = 'Light Shading'
-            tabla_forraje.cell(0, 0).text = 'Métrica'
-            tabla_forraje.cell(0, 1).text = 'Valor'
-            datos_f = [
-                ('Productividad (kg MS/ha)', f"{disp['productividad_kg_ms_ha']:,.0f}"),
-                ('Forraje aprovechable (ton)', f"{disp['forraje_aprovechable_kg_ms']/1000:.1f}"),
-                ('EV por día', f"{ev['ev_por_dia']:.1f}"),
-                ('EV recomendado (30 días)', f"{ev['ev_recomendado']:.1f}")
-            ]
-            for met, val in datos_f:
+            tabla_forraje.alignment = WD_TABLE_ALIGNMENT.CENTER
+            hdr5 = tabla_forraje.rows[0].cells
+            hdr5[0].text = 'Métrica'
+            hdr5[1].text = 'Valor'
+            for met, val in [
+                ('Productividad (kg MS/ha/30d)', f'{fa["productividad_kg_ms_ha"]:,.0f}'),
+                ('Disponibilidad total (ton MS/30d)', f'{fa["disponibilidad_total_kg_ms"]/1000:,.1f}'),
+                ('Forraje aprovechable (ton MS/30d)', f'{fa["forraje_aprovechable_kg_ms"]/1000:,.1f}'),
+                ('EV por día', f'{ev["ev_por_dia"]:.1f}'),
+                ('EV para 30 días', f'{ev["ev_para_periodo"]:.1f}'),
+                ('EV recomendado (30d)', f'{ev["ev_recomendado"]:.1f}'),
+                ('Consumo EV diario', f'{ev["consumo_ev_diario_kg"]} kg MS/EV/día'),
+            ]:
                 row = tabla_forraje.add_row().cells
                 row[0].text = met
                 row[1].text = val
             doc.add_paragraph()
-            fig_forrajero = vis.crear_grafico_forrajero(disp, ev)
-            if fig_forrajero:
-                try:
-                    img_bytes = fig_forrajero.to_image(format='png', width=1000, height=700, scale=2)
-                    img_path = os.path.join(tmpdir, 'forrajero.png')
-                    with open(img_path, 'wb') as f:
-                        f.write(img_bytes)
-                    doc.add_picture(img_path, width=Inches(6))
-                    doc.add_paragraph()
-                except:
-                    pass
 
-        doc.add_heading('5.1 Interpretación técnica', level=2)
+            fig_forrajero = vis.crear_grafico_forrajero(fa, ev)
+            _add_chart(fig_forrajero, 'Análisis forrajero — productividad, EV y distribución', tmpdir, Inches(5.5))
+
+            # Sublotes
+            sublotes = resultados.get('analisis_forrajero', {}).get('sublotes', [])
+            if sublotes:
+                doc.add_heading('5.1 Distribución por sublotes', level=2)
+                tabla_sub = doc.add_table(rows=1, cols=4)
+                tabla_sub.style = 'Light Shading'
+                tabla_sub.alignment = WD_TABLE_ALIGNMENT.CENTER
+                hdr_sub = tabla_sub.rows[0].cells
+                hdr_sub[0].text = 'Sublote'
+                hdr_sub[1].text = 'Área (ha)'
+                hdr_sub[2].text = 'Productividad (kg MS/ha)'
+                hdr_sub[3].text = 'Forraje aprovechable (ton)'
+                for i, s in enumerate(sublotes):
+                    row = tabla_sub.add_row().cells
+                    row[0].text = f'S{i+1}'
+                    row[1].text = f'{s.get("area_ha", 0):,.1f}'
+                    row[2].text = f'{s.get("productividad_kg_ms_ha", 0):,.0f}'
+                    row[3].text = f'{s.get("forraje_aprovechable_kg_ms", 0)/1000:,.1f}'
+                doc.add_paragraph()
+
+        _add_mapa('forraje', 'Mapa de productividad forrajera', tmpdir)
+
+        doc.add_heading('5.2 Interpretación técnica', level=2)
         analisis_forrajero = generar_analisis_forrajero(df, stats)
         doc.add_paragraph(analisis_forrajero)
 
-        # 6. Mapas de calor
-        if sistema_mapas:
-            doc.add_heading('6. MAPAS DE CALOR CONTINUOS', level=1)
-            variables = ['carbono', 'ndvi', 'ndwi', 'biodiversidad', 'forraje']
-            titulos = ['Carbono (ton C/ha)', 'NDVI', 'NDWI', 'Biodiversidad (Shannon)', 'Productividad Forrajera (kg MS/ha)']
-            for var, tit in zip(variables, titulos):
-                mapa = sistema_mapas.crear_mapa_estatico(resultados, var, gdf)
-                if mapa:
-                    doc.add_heading(tit, level=2)
-                    img_path = os.path.join(tmpdir, f'mapa_{var}.png')
-                    with open(img_path, 'wb') as f:
-                        f.write(mapa.getvalue())
-                    doc.add_picture(img_path, width=Inches(6))
-                    doc.add_paragraph()
+        # === 6. MAPAS DE CALOR ===
+        doc.add_heading('6. Mapas de Calor Continuos', level=1)
+        for var, tit in [('carbono', 'Carbono'), ('ndvi', 'NDVI'), ('ndwi', 'NDWI'), ('biodiversidad', 'Biodiversidad'), ('forraje', 'Forraje')]:
+            _add_mapa(var, f'Mapa de {tit.lower()}', tmpdir)
 
-        # 7. Recomendaciones Integradas
-        doc.add_heading('7. RECOMENDACIONES DE MANEJO', level=1)
+        # === 7. RECOMENDACIONES ===
+        doc.add_heading('7. Recomendaciones de Manejo', level=1)
         recomendaciones = generar_recomendaciones_integradas(df, stats)
         doc.add_paragraph(recomendaciones)
 
-        # 8. Metadatos
-        doc.add_heading('8. METADATOS', level=1)
+        # === 8. METADATOS ===
+        doc.add_heading('8. Metadatos', level=1)
         metadatos = [
-            ('Generado por', 'Sistema Satelital de Análisis Ambiental v3.0 con IA Groq'),
-            ('Fecha de generación', datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-            ('Número de puntos', str(stats['num_puntos']))
+            ('Generado por', 'Sistema Satelital de Análisis Ambiental v3.0 — BioServicio'),
+            ('Modelo IA', st.session_state.get('selected_model', 'openai/gpt-oss-120b')),
+            ('Fecha de generación', f'{fecha_str} {hora_str}'),
+            ('Superficie analizada', f'~{area_total:,.0f} ha'),
+            ('Puntos de muestreo', str(puntos)),
+            ('Coordenadas centroides', coord_str),
+            ('Ecosistema', sistema_nombre),
         ]
         for key, val in metadatos:
             p = doc.add_paragraph()
-            p.add_run(f"{key}: ").bold = True
+            p.add_run(f'{key}: ').bold = True
             p.add_run(val)
+
+        fuentes = doc.add_heading('Fuentes de datos', level=2)
+        for fuente in [
+            'Sentinel-2 (Copernicus / ESA) — NDVI, NDWI, NDRE, MSAVI, EVI',
+            'Google Earth Engine — procesamiento satelital',
+            'INTA EEA Anguil / Bordenave / Guatraché — datos forrajeros',
+            'Verra VCS Methodology VM0042 — estimación de carbono',
+            'Índice de Shannon (H\') — biodiversidad satelital',
+            'Esri World Imagery — mapa base satelital',
+        ]:
+            doc.add_paragraph(fuente, style='List Bullet')
 
         docx_output = BytesIO()
         doc.save(docx_output)
